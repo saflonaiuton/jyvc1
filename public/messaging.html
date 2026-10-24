@@ -7,7 +7,6 @@
 <title>Stranger Chat — Text Only</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-  /* Reset & Base */
   :root {
     --bg: #0f0f13;
     --bg-soft: #17171f;
@@ -28,11 +27,8 @@
     color: var(--text);
     user-select: none;
   }
+  .app { height: 100dvh; display: flex; flex-direction: column; }
   
-  /* App Layout */
-  .app { height: 100dvh; display: flex; flex-direction: column; position: relative; }
-  
-  /* Header */
   header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 12px 18px; border-bottom: 1px solid var(--border);
@@ -53,7 +49,6 @@
   .header-links a:hover { background: var(--bg-elev); color: var(--text); }
   .header-links a.active { background: rgba(124,92,255,.15); color: #b9a8ff; border-color: var(--accent); }
 
-  /* Landing Screen */
   .landing { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; overflow-y: auto; }
   .landing.hidden { display: none; }
   .landing-card {
@@ -97,9 +92,9 @@
   }
   .btn-start-big:hover { box-shadow: 0 10px 30px rgba(124,92,255,.55); }
   .btn-start-big:active { transform: scale(.98); }
+  .btn-start-big:disabled { opacity: .6; cursor: not-allowed; box-shadow: none; }
   .btn-start-big svg { width: 20px; height: 20px; }
 
-  /* Searching Screen */
   .searching { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; }
   .searching.hidden { display: none; }
   .searching .spinner {
@@ -111,7 +106,6 @@
   .searching h2 { font-size: 18px; margin-bottom: 8px; }
   .searching p { color: var(--muted); font-size: 13px; max-width: 280px; margin: 0 auto; }
 
-  /* Chat Screen */
   .chat-screen { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
   .chat-screen.hidden { display: none; }
   
@@ -205,23 +199,13 @@
   .chat-controls .btn.stop { background: rgba(255,77,109,.12); border-color: rgba(255,77,109,.4); color: #ff8fa3; }
   .chat-controls .btn svg { width: 15px; height: 15px; }
 
-  /* Footer */
   .site-footer {
-    flex-shrink: 0;
-    border-top: 1px solid var(--border);
-    background: rgba(10,10,16,.6);
+    flex-shrink: 0; border-top: 1px solid var(--border); background: rgba(10,10,16,.6);
     padding: 8px 14px calc(8px + env(safe-area-inset-bottom));
     display: flex; align-items: center; justify-content: center;
-    gap: 14px; flex-wrap: wrap;
-    font-size: 11px; color: var(--muted);
-    z-index: 21;
+    gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--muted); z-index: 21;
   }
-  .site-footer a {
-    color: var(--muted); text-decoration: none;
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 3px 8px; border-radius: 6px;
-    transition: background .15s, color .15s;
-  }
+  .site-footer a { color: var(--muted); text-decoration: none; display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; transition: background .15s, color .15s; }
   .site-footer a:hover { color: var(--accent-2); background: rgba(124,92,255,.1); }
   .site-footer .fb-link:hover { color: #4dabf7; }
   .site-footer .sep { width: 1px; height: 12px; background: var(--border); }
@@ -355,9 +339,13 @@
     typingTimer: null, lastTypingSent: 0, remoteTypingTimer: null
   };
 
-  // Force a fresh connection for text mode
   const socket = io({ transports: ['websocket', 'polling'], reconnection: true, query: { mode: 'text' } });
   state.socket = socket;
+
+  // Prevent double-queue when navigating between pages
+  window.addEventListener('beforeunload', () => {
+    try { socket.emit('leave_chat'); } catch(_) {}
+  });
 
   function validateName(raw) {
     const name = (raw || '').trim();
