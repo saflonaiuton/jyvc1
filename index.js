@@ -12,7 +12,7 @@ const { Server } = require('socket.io');
 
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
-const TRUST_PROXY = process.env.TRUST_PROXY === '1';
+const TRUST_PROXY = process.env.TRUST_PROXY === '1' || process.env.NODE_ENV === 'production';
 const ADMIN_KEY = process.env.ADMIN_KEY || 'change-me-secret-key';
 
 const app = express();
