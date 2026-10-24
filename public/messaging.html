@@ -7,6 +7,7 @@
 <title>Stranger Chat — Text Only</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
+  /* Reset & Base */
   :root {
     --bg: #0f0f13;
     --bg-soft: #17171f;
@@ -20,15 +21,18 @@
     --shadow: 0 10px 40px rgba(0,0,0,.5);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html, body { height: 100%; }
+  html, body { height: 100%; overflow: hidden; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
     background: radial-gradient(1200px 600px at 50% -10%, #1a1a2e 0%, var(--bg) 55%);
     color: var(--text);
-    overflow: hidden;
     user-select: none;
   }
-  .app { height: 100dvh; display: flex; flex-direction: column; }
+  
+  /* App Layout */
+  .app { height: 100dvh; display: flex; flex-direction: column; position: relative; }
+  
+  /* Header */
   header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 12px 18px; border-bottom: 1px solid var(--border);
@@ -49,7 +53,8 @@
   .header-links a:hover { background: var(--bg-elev); color: var(--text); }
   .header-links a.active { background: rgba(124,92,255,.15); color: #b9a8ff; border-color: var(--accent); }
 
-  .landing { flex: 1; display: grid; place-items: center; padding: 24px; overflow-y: auto; }
+  /* Landing Screen */
+  .landing { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; overflow-y: auto; }
   .landing.hidden { display: none; }
   .landing-card {
     width: 100%; max-width: 440px;
@@ -65,6 +70,7 @@
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
   .landing p { text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 26px; line-height: 1.6; }
+  
   .name-field { position: relative; margin-bottom: 20px; }
   .name-field label {
     display: block; font-size: 11px; text-transform: uppercase;
@@ -80,6 +86,7 @@
   .name-field .icon { position: absolute; left: 16px; bottom: 16px; font-size: 18px; pointer-events: none; color: var(--muted); }
   .name-hint { font-size: 11px; color: var(--muted); margin-top: -12px; margin-bottom: 20px; text-align: center; }
   .name-hint.error { color: var(--danger); }
+  
   .btn-start-big {
     width: 100%; background: linear-gradient(135deg, var(--accent), #5b3fd6);
     border: none; color: white; padding: 16px; border-radius: 14px;
@@ -92,9 +99,8 @@
   .btn-start-big:active { transform: scale(.98); }
   .btn-start-big svg { width: 20px; height: 20px; }
 
-  .chat-screen { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-  .chat-screen.hidden { display: none; }
-  .searching { flex: 1; display: grid; place-items: center; text-align: center; padding: 24px; }
+  /* Searching Screen */
+  .searching { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; }
   .searching.hidden { display: none; }
   .searching .spinner {
     width: 64px; height: 64px; border-radius: 50%;
@@ -105,6 +111,10 @@
   .searching h2 { font-size: 18px; margin-bottom: 8px; }
   .searching p { color: var(--muted); font-size: 13px; max-width: 280px; margin: 0 auto; }
 
+  /* Chat Screen */
+  .chat-screen { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .chat-screen.hidden { display: none; }
+  
   .chat-header {
     flex-shrink: 0; padding: 12px 18px;
     border-bottom: 1px solid var(--border);
@@ -130,6 +140,7 @@
   }
   .chat-messages::-webkit-scrollbar { width: 6px; }
   .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  
   .sys-msg {
     align-self: center; text-align: center; max-width: 80%;
     background: rgba(124,92,255,.1); border: 1px solid rgba(124,92,255,.25);
@@ -194,9 +205,7 @@
   .chat-controls .btn.stop { background: rgba(255,77,109,.12); border-color: rgba(255,77,109,.4); color: #ff8fa3; }
   .chat-controls .btn svg { width: 15px; height: 15px; }
 
-  /* ============================================================
-     ▼ NEW: Site footer
-     ============================================================ */
+  /* Footer */
   .site-footer {
     flex-shrink: 0;
     border-top: 1px solid var(--border);
@@ -206,7 +215,6 @@
     gap: 14px; flex-wrap: wrap;
     font-size: 11px; color: var(--muted);
     z-index: 21;
-    position: relative;
   }
   .site-footer a {
     color: var(--muted); text-decoration: none;
@@ -214,16 +222,16 @@
     padding: 3px 8px; border-radius: 6px;
     transition: background .15s, color .15s;
   }
-  .site-footer a:hover {
-    color: var(--accent-2);
-    background: rgba(124,92,255,.1);
-  }
+  .site-footer a:hover { color: var(--accent-2); background: rgba(124,92,255,.1); }
   .site-footer .fb-link:hover { color: #4dabf7; }
-  .site-footer .sep {
-    width: 1px; height: 12px; background: var(--border);
-  }
+  .site-footer .sep { width: 1px; height: 12px; background: var(--border); }
   .site-footer svg { width: 12px; height: 12px; }
+  
   @media (max-width: 540px) {
+    .landing-card { padding: 26px 20px; }
+    .landing h1 { font-size: 22px; }
+    .header-links a span { display: none; }
+    .bubble { max-width: 82%; }
     .site-footer { font-size: 10px; gap: 8px; padding: 6px 10px calc(6px + env(safe-area-inset-bottom)); }
     .site-footer .sep { display: none; }
   }
@@ -237,13 +245,6 @@
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .toast.error { border-color: rgba(255,77,109,.5); }
-
-  @media (max-width: 540px) {
-    .landing-card { padding: 26px 20px; }
-    .landing h1 { font-size: 22px; }
-    .header-links a span { display: none; }
-    .bubble { max-width: 82%; }
-  }
 </style>
 </head>
 <body>
@@ -311,12 +312,8 @@
     </div>
   </div>
 
-  <!-- ▼ NEW: Site footer -->
   <div class="site-footer">
-    <a href="https://www.facebook.com/profile.php?id=61590490534032"
-       target="_blank" rel="noopener noreferrer"
-       class="fb-link"
-       title="Visit Jay Bohol/Selov on Facebook">
+    <a href="https://www.facebook.com/profile.php?id=61590490534032" target="_blank" rel="noopener noreferrer" class="fb-link">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
       All Rights Reserved — Jay Bohol/Selov
     </a>
@@ -358,6 +355,7 @@
     typingTimer: null, lastTypingSent: 0, remoteTypingTimer: null
   };
 
+  // Force a fresh connection for text mode
   const socket = io({ transports: ['websocket', 'polling'], reconnection: true, query: { mode: 'text' } });
   state.socket = socket;
 
@@ -404,6 +402,7 @@
       resetToLanding('Connection restored. Click Start to reconnect.');
     }
   });
+  
   socket.on('disconnect', () => {
     if (state.inChat || state.inQueue) {
       resetToLanding('Connection lost. Click Start to reconnect.');
@@ -470,6 +469,7 @@
     addSystemMessage(`${state.peerName} left the chat.`);
     handlePeerGone();
   });
+  
   socket.on('chat_ended', () => {
     if (!state.inChat) return;
     addSystemMessage('Chat ended.');
