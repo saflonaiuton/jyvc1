@@ -90,7 +90,7 @@
 
   .video-tile.local { flex: 0 0 34%; max-width: 420px; }
 
-  /* Live waiting animation ring (shown on remote tile while queued) */
+  /* Waiting spinner ring on remote tile */
   .live-ring {
     position: absolute; inset: 0; display: none;
     align-items: center; justify-content: center;
@@ -122,33 +122,66 @@
   .overlay p { color: var(--muted); font-size: 13px; max-width: 300px; margin: 0 auto; }
   .overlay .big-emoji { font-size: 46px; margin-bottom: 12px; }
 
-  /* Always-visible chat section */
-  .chat-section {
+  /* ============================================================
+     Chat drawer — HIDDEN by default, opens only when 💬 tapped
+     ============================================================ */
+  .chat-drawer {
     flex-shrink: 0;
-    display: flex; flex-direction: column;
     background: var(--bg-soft);
     border-top: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    height: 0;
+    overflow: hidden;
+    transition: height .25s ease;
     z-index: 18;
   }
-  .chat-history {
-    max-height: 0;
-    overflow-y: auto;
-    padding: 0 16px;
-    transition: max-height .25s ease, padding .25s ease;
-    display: flex; flex-direction: column; gap: 6px;
-    scroll-behavior: smooth;
+  .chat-drawer.open { height: 320px; }
+  @media (max-width: 720px) {
+    .chat-drawer.open { height: 260px; }
   }
-  .chat-history.show { max-height: 220px; padding: 10px 16px; }
-  .chat-history::-webkit-scrollbar { width: 6px; }
-  .chat-history::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+  .chat-drawer-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 16px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; gap: 10px;
+  }
+  .chat-drawer-header h3 {
+    font-size: 13px; display: flex; align-items: center; gap: 8px;
+    white-space: nowrap;
+  }
+  .chat-drawer-header h3 .status-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--muted);
+    transition: background .2s, box-shadow .2s;
+  }
+  .chat-drawer-header h3 .status-dot.active {
+    background: var(--accent-2); box-shadow: 0 0 8px var(--accent-2);
+  }
   .chat-typing {
+    flex: 1; text-align: center;
     font-size: 11px; color: var(--accent-2); font-style: italic;
-    padding: 0 16px; height: 0; overflow: hidden;
-    transition: height .15s ease, padding .15s ease;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .chat-close {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 20px; padding: 2px 8px; border-radius: 8px; line-height: 1;
     flex-shrink: 0;
   }
-  .chat-typing.show { height: 18px; padding: 4px 16px 2px; }
+  .chat-close:hover { background: var(--bg-elev); color: var(--text); }
+
+  .chat-messages {
+    flex: 1; overflow-y: auto; padding: 10px 16px;
+    display: flex; flex-direction: column; gap: 6px;
+    scroll-behavior: smooth; min-height: 0;
+  }
+  .chat-messages::-webkit-scrollbar { width: 6px; }
+  .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .chat-empty {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; text-align: center; padding: 12px; color: var(--muted);
+  }
+  .chat-empty .emoji { font-size: 24px; margin-bottom: 6px; opacity: .7; }
+  .chat-empty p { font-size: 12px; max-width: 260px; line-height: 1.5; }
 
   .msg {
     max-width: 78%; padding: 7px 12px; border-radius: 14px;
@@ -169,21 +202,20 @@
   .msg .time { display: block; font-size: 9px; opacity: .6; margin-top: 3px; }
 
   .chat-input-row {
-    display: flex; gap: 8px; padding: 10px 14px;
-    align-items: center; flex-shrink: 0;
+    display: flex; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--border);
+    flex-shrink: 0; align-items: center;
   }
   .chat-input-row input {
     flex: 1; background: var(--bg); border: 1px solid var(--border);
-    color: var(--text); padding: 10px 14px; border-radius: 12px;
-    font-size: 14px; font-family: inherit; outline: none; min-width: 0;
-    transition: border-color .15s, opacity .15s;
+    color: var(--text); padding: 9px 14px; border-radius: 12px;
+    font-size: 13px; font-family: inherit; outline: none; min-width: 0;
+    transition: border-color .15s;
   }
   .chat-input-row input:focus { border-color: var(--accent); }
   .chat-input-row input:disabled { opacity: .5; cursor: not-allowed; }
-  .chat-input-row input::placeholder { color: var(--muted); }
   .chat-input-row button {
     background: linear-gradient(135deg, var(--accent), #5b3fd6);
-    border: none; color: white; padding: 10px 16px; border-radius: 12px;
+    border: none; color: white; padding: 9px 14px; border-radius: 12px;
     cursor: pointer; font-size: 16px; line-height: 1; flex-shrink: 0;
     transition: transform .1s, opacity .15s;
   }
@@ -211,8 +243,18 @@
   .btn.danger { background: rgba(255,77,109,.12); border-color: rgba(255,77,109,.4); color: #ff8fa3; }
   .btn.danger:hover:not(:disabled) { background: rgba(255,77,109,.22); }
   .btn.muted { background: rgba(255,176,32,.12); border-color: rgba(255,176,32,.4); color: var(--warn); }
+  .btn.active { background: rgba(124,92,255,.2); border-color: var(--accent); color: #b9a8ff; }
   .btn svg { width: 16px; height: 16px; }
   .control-group { display: flex; gap: 8px; }
+
+  /* Unread badge on chat button */
+  .btn .badge {
+    background: var(--danger); color: white; font-size: 10px;
+    padding: 1px 6px; border-radius: 999px; font-weight: 700;
+    margin-left: 2px; min-width: 16px; text-align: center;
+    display: none;
+  }
+  .btn .badge.show { display: inline-block; }
 
   .status-bar {
     text-align: center; font-size: 12px; color: var(--muted); margin-top: 8px;
@@ -257,8 +299,6 @@
   @media (max-width: 720px) {
     .stage { flex-direction: column-reverse; }
     .video-tile.local { flex: 0 0 30%; max-width: none; }
-    .chat-history.show { max-height: 150px; }
-    .chat-input-row { padding: 8px 10px; }
   }
   @media (max-width: 540px) {
     .controls { gap: 6px; }
@@ -310,6 +350,25 @@
       </div>
     </div>
 
+    <!-- Chat drawer — hidden by default, tap 💬 to open -->
+    <aside class="chat-drawer" id="chatDrawer">
+      <div class="chat-drawer-header">
+        <h3><span class="status-dot" id="chatStatusDot"></span>Chat</h3>
+        <span class="chat-typing" id="chatTyping"></span>
+        <button class="chat-close" id="chatClose" title="Close chat">×</button>
+      </div>
+      <div class="chat-messages" id="chatMessages">
+        <div class="chat-empty" id="chatEmpty">
+          <div class="emoji">💬</div>
+          <p>Say hi to your stranger. Messages disappear when the chat ends.</p>
+        </div>
+      </div>
+      <div class="chat-input-row">
+        <input type="text" id="chatInput" placeholder="Type a message…" maxlength="500" disabled autocomplete="off" />
+        <button id="chatSend" disabled title="Send">➤</button>
+      </div>
+    </aside>
+
     <div class="overlay" id="overlay">
       <div>
         <div class="spinner" id="overlaySpinner"></div>
@@ -319,23 +378,6 @@
       </div>
     </div>
   </main>
-
-  <!-- Always-visible chat section -->
-  <section class="chat-section" id="chatSection">
-    <div class="chat-history" id="chatHistory"></div>
-    <div class="chat-typing" id="chatTyping"></div>
-    <div class="chat-input-row">
-      <input
-        type="text"
-        id="chatInput"
-        placeholder="Type a message…"
-        maxlength="500"
-        disabled
-        autocomplete="off"
-      />
-      <button id="chatSend" disabled title="Send">➤</button>
-    </div>
-  </section>
 
   <footer>
     <div class="controls">
@@ -349,6 +391,12 @@
           <svg id="camIconOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><line x1="1" y1="1" x2="23" y2="23"/><path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34"/><path d="M16 16l7 7"/><polygon points="23 7 16 12 23 17 23 7"/></svg>
         </button>
       </div>
+
+      <!-- Chat toggle with unread badge -->
+      <button class="btn icon" id="btnChat" title="Open chat" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="badge" id="chatBadge">0</span>
+      </button>
 
       <button class="btn icon danger" id="btnReport" title="Report stranger" disabled>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
@@ -430,11 +478,18 @@
   const btnMic = $('btnMic');
   const btnCam = $('btnCam');
   const btnReport = $('btnReport');
+  const btnChat = $('btnChat');
 
-  const chatHistory = $('chatHistory');
+  // Chat drawer DOM
+  const chatDrawer = $('chatDrawer');
+  const chatMessages = $('chatMessages');
+  const chatEmpty = $('chatEmpty');
   const chatInput = $('chatInput');
   const chatSend = $('chatSend');
+  const chatClose = $('chatClose');
   const chatTyping = $('chatTyping');
+  const chatBadge = $('chatBadge');
+  const chatStatusDot = $('chatStatusDot');
 
   const state = {
     socket: null,
@@ -443,12 +498,12 @@
     peerId: null,
     inQueue: false,
     inChat: false,
-    autoMatching: false,   // true while we auto-requeue after peer leaves
     userStopped: false,    // true if user pressed Stop — don't auto-requeue
     iceQueue: [],
     remoteDescSet: false,
     makingOffer: false,
-    hasMessages: false,
+    chatOpen: false,
+    unreadCount: 0,
     typingTimer: null,
     lastTypingSent: 0,
     remoteTypingTimer: null
@@ -459,7 +514,6 @@
 
   // ============ Socket lifecycle ============
   socket.on('connect', () => {
-    // If we were mid-chat before a socket drop, restart the auto-flow.
     if (state.inChat || state.inQueue) {
       cleanupPeer();
       state.inChat = false;
@@ -549,7 +603,6 @@
   });
 
   socket.on('peer_left', () => {
-    // Auto-requeue: stranger left. Find another one.
     handlePeerGone('Stranger left. Finding someone new…');
   });
 
@@ -580,19 +633,27 @@
   socket.on('chat_message', ({ from, text, ts }) => {
     if (from !== state.peerId) return;
     appendMessage(text, 'theirs', ts);
-    hideTyping();
+    chatTyping.textContent = '';
+    if (state.remoteTypingTimer) { clearTimeout(state.remoteTypingTimer); state.remoteTypingTimer = null; }
+    if (!state.chatOpen) {
+      state.unreadCount++;
+      updateChatBadge();
+    }
   });
 
   socket.on('typing', ({ from }) => {
     if (from !== state.peerId) return;
-    showTyping('Stranger is typing…');
+    chatTyping.textContent = 'Stranger is typing…';
     if (state.remoteTypingTimer) clearTimeout(state.remoteTypingTimer);
-    state.remoteTypingTimer = setTimeout(hideTyping, 3000);
+    state.remoteTypingTimer = setTimeout(() => {
+      if (chatTyping.textContent === 'Stranger is typing…') chatTyping.textContent = '';
+    }, 3000);
   });
 
   socket.on('stop_typing', ({ from }) => {
     if (from !== state.peerId) return;
-    hideTyping();
+    chatTyping.textContent = '';
+    if (state.remoteTypingTimer) { clearTimeout(state.remoteTypingTimer); state.remoteTypingTimer = null; }
   });
 
   // ============ Auto-matching flow ============
@@ -605,7 +666,6 @@
       toast(e.message, 'error');
       return;
     }
-    state.autoMatching = true;
     socket.emit('join_queue');
     showSearchingUI();
     updateButtons();
@@ -614,7 +674,6 @@
   function showSearchingUI() {
     showOverlay('waiting', 'Looking for someone…', 'We are connecting you with a random stranger.');
     setStatus('waiting', 'Searching for a stranger…');
-    // Show a subtle spinner ring on the remote tile while waiting
     liveRing.classList.add('show');
     remotePlaceholder.style.display = 'grid';
     remoteBadge.classList.remove('live');
@@ -627,7 +686,6 @@
     state.inChat = false;
     state.peerId = null;
 
-    // Automatically re-enter the queue unless the user hit Stop
     if (state.userStopped) {
       setStatus('idle', 'Stopped — press Next to find a stranger');
       hideOverlay();
@@ -752,54 +810,78 @@
     liveRing.classList.remove('show');
   }
 
-  // ============ Chat helpers ============
+  // ============ Chat logic — tap-to-open ============
+  function openChat() {
+    state.chatOpen = true;
+    chatDrawer.classList.add('open');
+    btnChat.classList.add('active');
+    btnChat.title = 'Close chat';
+    state.unreadCount = 0;
+    updateChatBadge();
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    setTimeout(() => { if (state.inChat) chatInput.focus(); }, 260);
+  }
+
+  function closeChat() {
+    state.chatOpen = false;
+    chatDrawer.classList.remove('open');
+    btnChat.classList.remove('active');
+    btnChat.title = 'Open chat';
+    chatInput.blur();
+  }
+
+  function toggleChat() {
+    state.chatOpen ? closeChat() : openChat();
+  }
+
+  function updateChatBadge() {
+    chatBadge.textContent = state.unreadCount > 9 ? '9+' : String(state.unreadCount);
+    chatBadge.classList.toggle('show', state.unreadCount > 0);
+  }
+
   function resetChatForNewPeer() {
-    chatHistory.innerHTML = '';
-    chatHistory.classList.remove('show');
-    state.hasMessages = false;
-    hideTyping();
+    chatMessages.innerHTML = '';
+    chatMessages.appendChild(chatEmpty);
+    chatEmpty.style.display = 'flex';
+    chatTyping.textContent = '';
+    state.unreadCount = 0;
+    updateChatBadge();
+    chatStatusDot.classList.add('active');
     chatInput.disabled = false;
     chatSend.disabled = false;
     chatInput.value = '';
   }
 
   function clearChatOnEnd() {
-    chatHistory.innerHTML = '';
-    chatHistory.classList.remove('show');
-    state.hasMessages = false;
-    hideTyping();
+    chatMessages.innerHTML = '';
+    chatMessages.appendChild(chatEmpty);
+    chatEmpty.style.display = 'flex';
+    chatTyping.textContent = '';
+    chatStatusDot.classList.remove('active');
     chatInput.disabled = true;
     chatSend.disabled = true;
     chatInput.value = '';
+    state.unreadCount = 0;
+    updateChatBadge();
     if (state.remoteTypingTimer) { clearTimeout(state.remoteTypingTimer); state.remoteTypingTimer = null; }
+    closeChat();
   }
 
   function appendMessage(text, kind, ts) {
+    const empty = chatMessages.querySelector('.chat-empty');
+    if (empty) empty.style.display = 'none';
+
     const div = document.createElement('div');
     div.className = 'msg ' + kind;
+    const time = new Date(ts || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     div.textContent = text;
     const timeEl = document.createElement('span');
     timeEl.className = 'time';
-    timeEl.textContent = new Date(ts || Date.now())
-      .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    timeEl.textContent = time;
     div.appendChild(timeEl);
-    chatHistory.appendChild(div);
 
-    if (!state.hasMessages) {
-      state.hasMessages = true;
-      chatHistory.classList.add('show');
-    }
-    chatHistory.scrollTop = chatHistory.scrollHeight;
-  }
-
-  function showTyping(text) {
-    chatTyping.textContent = text;
-    chatTyping.classList.add('show');
-  }
-  function hideTyping() {
-    chatTyping.textContent = '';
-    chatTyping.classList.remove('show');
-    if (state.remoteTypingTimer) { clearTimeout(state.remoteTypingTimer); state.remoteTypingTimer = null; }
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
   }
 
   function sendChatMessage() {
@@ -846,6 +928,8 @@
     btnNext.disabled = !busy;
     btnStop.disabled = !busy;
     btnReport.disabled = !state.inChat;
+    btnChat.disabled = !state.inChat;
+    if (!state.inChat && state.chatOpen) closeChat();
   }
 
   function syncTrackButtons() {
@@ -875,7 +959,6 @@
 
   // ============ Event wiring ============
   btnNext.addEventListener('click', () => {
-    // Skip current stranger. Auto-requeue still active.
     state.userStopped = false;
     if (state.inChat || state.inQueue) {
       cleanupPeer();
@@ -889,7 +972,6 @@
       remoteBadgeText.textContent = 'Searching…';
       updateButtons();
     } else {
-      // Not in chat — just start matching again
       state.userStopped = false;
       startAutoMatch();
     }
@@ -897,7 +979,6 @@
 
   btnStop.addEventListener('click', () => {
     state.userStopped = true;
-    state.autoMatching = false;
     if (state.inChat || state.inQueue) socket.emit('leave_chat');
     cleanupPeer();
     clearChatOnEnd();
@@ -930,6 +1011,9 @@
     syncTrackButtons();
   });
 
+  // Chat tap-to-open
+  btnChat.addEventListener('click', () => toggleChat());
+  chatClose.addEventListener('click', () => closeChat());
   chatSend.addEventListener('click', sendChatMessage);
 
   chatInput.addEventListener('keydown', (e) => {
@@ -937,6 +1021,7 @@
       e.preventDefault();
       sendChatMessage();
     }
+    if (e.key === 'Escape') closeChat();
   });
 
   chatInput.addEventListener('input', () => {
@@ -978,7 +1063,6 @@
       reportModal.classList.remove('show');
       $('reportDetails').value = '';
       socket.emit('block_peer');
-      // Continue auto-matching with someone else
       handlePeerGone('Reported. Finding someone new…');
     } catch (e) { toast(e.message, 'error'); }
   });
@@ -996,12 +1080,11 @@
   updateButtons();
   refreshStats();
 
-  // Kick off the auto-match flow once the page is ready.
-  // The browser will show its own camera/mic permission prompt.
+  // Kick off auto-matching on page load (camera prompt appears immediately)
   startAutoMatch();
 
   window.__strangerCam = { state, socket };
 })();
 </script>
 </body>
-</html>
+  </html>
