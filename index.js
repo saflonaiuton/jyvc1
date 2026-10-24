@@ -12,7 +12,8 @@ const { Server } = require('socket.io');
 
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
-const TRUST_PROXY = process.env.TRUST_PROXY === '1' || process.env.NODE_ENV === 'production';
+// FIX: Automatically trust Render's proxy in production to avoid express-rate-limit errors
+const TRUST_PROXY = process.env.TRUST_PROXY === '1' || NODE_ENV === 'production';
 const ADMIN_KEY = process.env.ADMIN_KEY || 'change-me-secret-key';
 
 const app = express();
@@ -68,8 +69,6 @@ const adminLimiter = rateLimit({
 app.use('/api/', apiLimiter);
 
 // ---------- Dual-pool state ----------
-// Video mode: existing behavior (WebRTC)
-// Text mode: text-only, users provide a name
 const pools = {
   video: { queue: new Set(), matches: new Map() },
   text:  { queue: new Set(), matches: new Map() }
@@ -79,7 +78,6 @@ const sessions = new Map();
 const recentReports = [];
 const MAX_REPORTS = 1000;
 
-// Admin
 let adminSocketId = null;
 let adminVideoUrl = null;
 let adminDurationSeconds = 0;
@@ -153,23 +151,13 @@ function tryMatchInPool(mode) {
     const socketA2 = io.sockets.sockets.get(initiator);
     const socketB2 = io.sockets.sockets.get(other);
 
-    // Include names for text mode
     const nameOf = (sid) => sessions.get(sid)?.name || 'Stranger';
-    const payloadA = {
-      peerId: other,
-      initiator: true,
-      peerName: nameOf(other)
-    };
-    const payloadB = {
-      peerId: initiator,
-      initiator: false,
-      peerName: nameOf(initiator)
-    };
+    const payloadA = { peerId: other, initiator: true, peerName: nameOf(other) };
+    const payloadB = { peerId: initiator, initiator: false, peerName: nameOf(initiator) };
 
     socketA2.emit('match_found', payloadA);
     socketB2.emit('match_found', payloadB);
 
-    // Admin auto-next for video mode
     if (mode === 'video' && adminVideoUrl && (initiator === adminSocketId || other === adminSocketId)) {
       scheduleAutoNext(initiator === adminSocketId ? other : initiator);
     }
@@ -224,7 +212,6 @@ function rateLimitChat(socket) {
   return true;
 }
 
-// ---------- Socket.IO ----------
 io.use((socket, next) => {
   socket.data.signalTimestamps = [];
   socket.data.chatTimestamps = [];
@@ -245,7 +232,6 @@ io.on('connection', (socket) => {
   const mode = socket.data.mode;
   const pool = pools[mode];
 
-  // Admin registration (video only)
   socket.on('admin_register', ({ key }) => {
     if (sanitizeString(key, 200) !== ADMIN_KEY) {
       socket.emit('admin_error', { message: 'Invalid admin key.' });
@@ -287,9 +273,7 @@ io.on('connection', (socket) => {
     broadcastStats();
   });
 
-  // ---------- Join queue ----------
   socket.on('join_queue', (payload) => {
-    // For text mode, capture name
     if (mode === 'text') {
       const name = sanitizeString(payload && payload.name, 24);
       if (name.length < 2) {
@@ -340,7 +324,6 @@ io.on('connection', (socket) => {
     broadcastStats();
   });
 
-  // ---------- WebRTC ----------
   socket.on('webrtc_offer', (payload) => {
     if (!rateLimitSignal(socket)) return;
     const to = payload && payload.to;
@@ -374,7 +357,6 @@ io.on('connection', (socket) => {
     if (target) target.emit('webrtc_ice_candidate', { from: socket.id, candidate });
   });
 
-  // ---------- Chat ----------
   socket.on('chat_message', (payload) => {
     if (!rateLimitChat(socket)) {
       socket.emit('error_message', { message: 'Sending too fast.' });
@@ -440,7 +422,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// ---------- REST API ----------
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime(), node: process.version, env: NODE_ENV });
 });
