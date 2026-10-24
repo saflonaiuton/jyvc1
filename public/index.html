@@ -178,7 +178,6 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Local PiP */
   .video-tile.local {
     position: absolute;
     top: 20px; right: 20px;
@@ -194,7 +193,6 @@
   .video-tile.local video {
     width: 100%; height: 100%; object-fit: cover;
     display: block; background: #000;
-    /* mirror only for front camera; toggled via class */
     transition: transform .15s;
   }
   .video-tile.local video.mirrored { transform: scaleX(-1); }
@@ -214,7 +212,6 @@
   .video-tile.local .placeholder h3 { font-size: 11px; }
   .video-tile.local .placeholder p { display: none; }
 
-  /* ▼ NEW: Camera flip button inside PiP (bottom-right of local tile) */
   .camera-flip-btn {
     position: absolute;
     bottom: 6px; right: 6px;
@@ -223,7 +220,7 @@
     background: rgba(0,0,0,.65);
     border: 1px solid rgba(255,255,255,.2);
     color: white;
-    display: none; /* hidden by default; shown when ≥ 2 cameras exist */
+    display: none;
     align-items: center;
     justify-content: center;
     cursor: pointer;
@@ -250,7 +247,6 @@
     .camera-flip-btn svg { width: 13px; height: 13px; }
   }
 
-  /* Chat drawer */
   .chat-drawer {
     flex-shrink: 0;
     background: var(--bg-soft);
@@ -391,6 +387,40 @@
   .status-bar.connected .dot { background: var(--accent-2); box-shadow: 0 0 8px var(--accent-2); }
   .status-bar.waiting .dot { background: var(--warn); animation: pulse 1.4s infinite; }
 
+  /* ============================================================
+     ▼ NEW: Site footer with copyright + contact
+     ============================================================ */
+  .site-footer {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    background: rgba(10,10,16,.6);
+    padding: 8px 14px calc(8px + env(safe-area-inset-bottom));
+    display: flex; align-items: center; justify-content: center;
+    gap: 14px; flex-wrap: wrap;
+    font-size: 11px; color: var(--muted);
+    z-index: 21;
+    position: relative;
+  }
+  .site-footer a {
+    color: var(--muted); text-decoration: none;
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 6px;
+    transition: background .15s, color .15s;
+  }
+  .site-footer a:hover {
+    color: var(--accent-2);
+    background: rgba(124,92,255,.1);
+  }
+  .site-footer .fb-link:hover { color: #4dabf7; }
+  .site-footer .sep {
+    width: 1px; height: 12px; background: var(--border);
+  }
+  .site-footer svg { width: 12px; height: 12px; }
+  @media (max-width: 540px) {
+    .site-footer { font-size: 10px; gap: 8px; padding: 6px 10px calc(6px + env(safe-area-inset-bottom)); }
+    .site-footer .sep { display: none; }
+  }
+
   #toast {
     position: fixed; top: 70px; left: 50%; transform: translateX(-50%) translateY(-20px);
     background: var(--bg-elev); border: 1px solid var(--border); color: var(--text);
@@ -497,7 +527,6 @@
             </div>
           </div>
 
-          <!-- ▼ NEW: camera flip button -->
           <button class="camera-flip-btn" id="btnFlipCamera" title="Switch camera">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
@@ -573,6 +602,22 @@
       <span class="dot"></span><span id="statusText">Connecting…</span>
     </div>
   </footer>
+
+  <!-- ▼ NEW: Site footer -->
+  <div class="site-footer">
+    <a href="https://www.facebook.com/profile.php?id=61590490534032"
+       target="_blank" rel="noopener noreferrer"
+       class="fb-link"
+       title="Visit Jay Bohol/Selov on Facebook">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+      All Rights Reserved — Jay Bohol/Selov
+    </a>
+    <span class="sep"></span>
+    <a href="mailto:bohol.jay@llcc.edu.ph" title="Send email">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 7 10-7"/></svg>
+      bohol.jay@llcc.edu.ph
+    </a>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -666,16 +711,14 @@
     typingTimer: null,
     lastTypingSent: 0,
     remoteTypingTimer: null,
-    // Camera switching
-    currentFacingMode: 'user',     // 'user' | 'environment'
-    availableCameras: [],          // MediaDeviceInfo[]
+    currentFacingMode: 'user',
+    availableCameras: [],
     isSwitchingCamera: false
   };
 
   const socket = io({ transports: ['websocket','polling'], reconnection: true, query: { mode: 'video' } });
   state.socket = socket;
 
-  // ============ Name validation ============
   function validateName(raw) {
     const name = (raw || '').trim();
     if (name.length < 2) return { ok: false, error: 'Name must be at least 2 characters.' };
@@ -697,7 +740,6 @@
     if (e.key === 'Enter') { e.preventDefault(); btnStart.click(); }
   });
 
-  // ============ Start button ============
   btnStart.addEventListener('click', async () => {
     const v = validateName(nameInput.value);
     if (!v.ok) {
@@ -725,7 +767,6 @@
     showSearchingUI();
   });
 
-  // ============ Socket lifecycle ============
   socket.on('connect', () => {
     if (state.inChat || state.inQueue) {
       resetToLanding('Connection restored. Click Start to reconnect.');
@@ -831,20 +872,13 @@
     if (state.remoteTypingTimer) { clearTimeout(state.remoteTypingTimer); state.remoteTypingTimer = null; }
   });
 
-  // ============ Camera / Media ============
-  /**
-   * Detect how many video input devices exist and show the flip button if ≥ 2.
-   * Note: device labels are only visible after permission is granted once,
-   * so we call this after getUserMedia succeeds.
-   */
   async function detectCameras() {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
       const devices = await navigator.mediaDevices.enumerateDevices();
       const cams = devices.filter(d => d.kind === 'videoinput');
       state.availableCameras = cams;
-      const show = cams.length >= 2;
-      btnFlipCamera.classList.toggle('show', show);
+      btnFlipCamera.classList.toggle('show', cams.length >= 2);
     } catch (_) {
       btnFlipCamera.classList.remove('show');
     }
@@ -878,7 +912,6 @@
       else if (err.name === 'NotFoundError') msg = 'No camera or microphone found.';
       else if (err.name === 'NotReadableError') msg = 'Camera is in use by another app.';
       else if (err.name === 'OverconstrainedError') {
-        // Fallback — retry without facingMode
         try {
           const stream = await navigator.mediaDevices.getUserMedia({
             video: true,
@@ -900,11 +933,6 @@
     }
   }
 
-  /**
-   * Flip between front ('user') and back ('environment') camera.
-   * Replaces the video track on the local stream, updates the local preview,
-   * and swaps the sender track on the live RTCPeerConnection if in a call.
-   */
   async function flipCamera() {
     if (state.isSwitchingCamera) return;
     if (!state.localStream) return;
@@ -916,23 +944,16 @@
     const nextFacing = state.currentFacingMode === 'user' ? 'environment' : 'user';
 
     try {
-      // Stop the old video tracks first so the camera releases
       const oldVideoTracks = state.localStream.getVideoTracks();
       oldVideoTracks.forEach(t => { try { t.stop(); } catch (_) {} });
 
-      // Get a new stream with the target facing mode
       let newStream;
       try {
         newStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: nextFacing
-          },
-          audio: false   // keep the existing audio track untouched
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: nextFacing },
+          audio: false
         });
       } catch (err) {
-        // Some browsers reject 'environment' on desktop — try with deviceId if we have 2+ cams
         if (state.availableCameras.length >= 2) {
           const otherCam = state.availableCameras.find(c =>
             c.deviceId && c.deviceId !== oldVideoTracks[0]?.getSettings?.().deviceId
@@ -942,33 +963,24 @@
               video: { deviceId: { exact: otherCam.deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } },
               audio: false
             });
-          } else {
-            throw err;
-          }
-        } else {
-          throw err;
-        }
+          } else { throw err; }
+        } else { throw err; }
       }
 
       const newVideoTrack = newStream.getVideoTracks()[0];
       if (!newVideoTrack) throw new Error('No video track from new camera.');
 
-      // Replace the video track in our local media stream
       state.localStream.removeTrack(oldVideoTracks[0]);
       state.localStream.addTrack(newVideoTrack);
 
-      // Update the local preview
       localVideo.srcObject = state.localStream;
       localVideo.muted = true;
 
-      // Mirror only front-facing
       state.currentFacingMode = nextFacing;
       applyMirrorState();
 
-      // Preserve mute state (if video was disabled, keep it disabled)
       newVideoTrack.enabled = state.camOn;
 
-      // Swap the outgoing track on the live peer connection (in-call)
       if (state.pc) {
         const sender = state.pc.getSenders().find(s => s.track && s.track.kind === 'video');
         if (sender) await sender.replaceTrack(newVideoTrack);
@@ -979,15 +991,13 @@
     } catch (err) {
       console.warn('Camera flip failed:', err);
       toast('Could not switch camera. ' + (err.message || ''), 'error');
-      // Attempt to restore the previous camera
       try {
-        const restoreFacing = state.currentFacingMode; // unchanged since we errored before assignment
+        const restoreFacing = state.currentFacingMode;
         const restoreStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: restoreFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false
         });
         const t = restoreStream.getVideoTracks()[0];
-        // Clean any current video track and re-add
         state.localStream.getVideoTracks().forEach(x => { try { x.stop(); } catch (_) {} });
         state.localStream.getVideoTracks().forEach(x => state.localStream.removeTrack(x));
         state.localStream.addTrack(t);
@@ -996,7 +1006,7 @@
           const sender = state.pc.getSenders().find(s => s.track && s.track.kind === 'video');
           if (sender) await sender.replaceTrack(t);
         }
-      } catch (_) { /* give up */ }
+      } catch (_) {}
     } finally {
       state.isSwitchingCamera = false;
       btnFlipCamera.disabled = false;
@@ -1005,15 +1015,10 @@
   }
 
   function applyMirrorState() {
-    // Mirror the local preview only for the front (selfie) camera.
-    if (state.currentFacingMode === 'user') {
-      localVideo.classList.add('mirrored');
-    } else {
-      localVideo.classList.remove('mirrored');
-    }
+    if (state.currentFacingMode === 'user') localVideo.classList.add('mirrored');
+    else localVideo.classList.remove('mirrored');
   }
 
-  // Wire the flip button
   btnFlipCamera.addEventListener('click', (e) => {
     e.stopPropagation();
     flipCamera();
@@ -1084,7 +1089,6 @@
     liveRing.classList.remove('show');
   }
 
-  // ============ Chat helpers ============
   function openChat() {
     state.chatOpen = true;
     chatDrawer.classList.add('open');
@@ -1162,7 +1166,6 @@
     chatInput.focus();
   }
 
-  // ============ UI states ============
   function showSearchingUI() {
     searchingScreen.classList.add('show');
     liveRing.classList.add('show');
@@ -1232,7 +1235,6 @@
     toastTimer = setTimeout(() => { toastEl.className = ''; }, 3200);
   }
 
-  // ============ Buttons ============
   btnNext.addEventListener('click', () => {
     if (!state.inChat && !state.inQueue) return;
     cleanupPeer();
@@ -1323,4 +1325,4 @@
 })();
 </script>
 </body>
-</html>
+  </html>
