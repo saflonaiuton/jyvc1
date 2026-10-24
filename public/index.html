@@ -90,6 +90,22 @@
 
   .video-tile.local { flex: 0 0 34%; max-width: 420px; }
 
+  /* Live waiting animation ring (shown on remote tile while queued) */
+  .live-ring {
+    position: absolute; inset: 0; display: none;
+    align-items: center; justify-content: center;
+    pointer-events: none; z-index: 2;
+  }
+  .live-ring.show { display: flex; }
+  .live-ring .ring {
+    width: 90px; height: 90px; border-radius: 50%;
+    border: 3px solid transparent;
+    border-top-color: var(--accent);
+    border-right-color: var(--accent-2);
+    animation: spin 1.2s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
   /* Overlay */
   .overlay {
     position: absolute; inset: 0; z-index: 10;
@@ -102,14 +118,11 @@
     border: 3px solid rgba(124,92,255,.25); border-top-color: var(--accent);
     animation: spin 1s linear infinite; margin: 0 auto 18px;
   }
-  @keyframes spin { to { transform: rotate(360deg); } }
   .overlay h2 { font-size: 18px; margin-bottom: 6px; }
   .overlay p { color: var(--muted); font-size: 13px; max-width: 300px; margin: 0 auto; }
   .overlay .big-emoji { font-size: 46px; margin-bottom: 12px; }
 
-  /* ============================================================
-     ▼ NEW: Always-visible chat section at the bottom
-     ============================================================ */
+  /* Always-visible chat section */
   .chat-section {
     flex-shrink: 0;
     display: flex; flex-direction: column;
@@ -117,8 +130,6 @@
     border-top: 1px solid var(--border);
     z-index: 18;
   }
-
-  /* Scrollable history — hidden until first message */
   .chat-history {
     max-height: 0;
     overflow-y: auto;
@@ -127,10 +138,7 @@
     display: flex; flex-direction: column; gap: 6px;
     scroll-behavior: smooth;
   }
-  .chat-history.show {
-    max-height: 220px;
-    padding: 10px 16px;
-  }
+  .chat-history.show { max-height: 220px; padding: 10px 16px; }
   .chat-history::-webkit-scrollbar { width: 6px; }
   .chat-history::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
@@ -140,10 +148,7 @@
     transition: height .15s ease, padding .15s ease;
     flex-shrink: 0;
   }
-  .chat-typing.show {
-    height: 18px;
-    padding: 4px 16px 2px;
-  }
+  .chat-typing.show { height: 18px; padding: 4px 16px 2px; }
 
   .msg {
     max-width: 78%; padding: 7px 12px; border-radius: 14px;
@@ -163,7 +168,6 @@
   }
   .msg .time { display: block; font-size: 9px; opacity: .6; margin-top: 3px; }
 
-  /* Input row — always visible when in chat */
   .chat-input-row {
     display: flex; gap: 8px; padding: 10px 14px;
     align-items: center; flex-shrink: 0;
@@ -204,11 +208,6 @@
   .btn:active:not(:disabled) { transform: scale(.97); }
   .btn:disabled { opacity: .38; cursor: not-allowed; }
   .btn.icon { padding: 11px 12px; }
-  .btn.primary {
-    background: linear-gradient(135deg, var(--accent), #5b3fd6);
-    border-color: transparent; box-shadow: 0 6px 20px rgba(124,92,255,.35);
-  }
-  .btn.primary:hover:not(:disabled) { background: linear-gradient(135deg,#8d70ff,#6a4ee8); }
   .btn.danger { background: rgba(255,77,109,.12); border-color: rgba(255,77,109,.4); color: #ff8fa3; }
   .btn.danger:hover:not(:disabled) { background: rgba(255,77,109,.22); }
   .btn.muted { background: rgba(255,176,32,.12); border-color: rgba(255,176,32,.4); color: var(--warn); }
@@ -288,11 +287,12 @@
       <div class="video-tile remote" id="remoteTile">
         <div class="tile-badge" id="remoteBadge"><span class="dot"></span><span id="remoteBadgeText">No stranger</span></div>
         <video id="remoteVideo" autoplay playsinline></video>
+        <div class="live-ring" id="liveRing"><div class="ring"></div></div>
         <div class="placeholder" id="remotePlaceholder">
           <div>
             <div class="avatar">👋</div>
             <h3>Ready to meet someone?</h3>
-            <p>Tap Start Chat to connect with a random stranger from around the world.</p>
+            <p>Connecting you with a stranger…</p>
           </div>
         </div>
       </div>
@@ -304,7 +304,7 @@
           <div>
             <div class="avatar">📷</div>
             <h3>Camera off</h3>
-            <p>Allow camera access to preview yourself.</p>
+            <p>Allow camera access to start meeting strangers.</p>
           </div>
         </div>
       </div>
@@ -320,7 +320,7 @@
     </div>
   </main>
 
-  <!-- ▼ NEW: Always-visible chat section above the controls -->
+  <!-- Always-visible chat section -->
   <section class="chat-section" id="chatSection">
     <div class="chat-history" id="chatHistory"></div>
     <div class="chat-typing" id="chatTyping"></div>
@@ -339,11 +339,6 @@
 
   <footer>
     <div class="controls">
-      <button class="btn primary" id="btnStart">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        <span class="label">Start Chat</span>
-      </button>
-
       <div class="control-group">
         <button class="btn icon" id="btnMic" title="Mute microphone" disabled>
           <svg id="micIconOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
@@ -370,7 +365,7 @@
       </button>
     </div>
     <div class="status-bar" id="statusBar">
-      <span class="dot"></span><span id="statusText">Idle — press Start Chat</span>
+      <span class="dot"></span><span id="statusText">Connecting…</span>
     </div>
   </footer>
 </div>
@@ -418,6 +413,7 @@
   const remoteVideo = $('remoteVideo');
   const localPlaceholder = $('localPlaceholder');
   const remotePlaceholder = $('remotePlaceholder');
+  const liveRing = $('liveRing');
   const remoteBadge = $('remoteBadge');
   const remoteBadgeText = $('remoteBadgeText');
   const overlay = $('overlay');
@@ -429,14 +425,12 @@
   const statusText = $('statusText');
   const toastEl = $('toast');
 
-  const btnStart = $('btnStart');
   const btnNext = $('btnNext');
   const btnStop = $('btnStop');
   const btnMic = $('btnMic');
   const btnCam = $('btnCam');
   const btnReport = $('btnReport');
 
-  // Always-visible chat
   const chatHistory = $('chatHistory');
   const chatInput = $('chatInput');
   const chatSend = $('chatSend');
@@ -449,8 +443,8 @@
     peerId: null,
     inQueue: false,
     inChat: false,
-    micOn: true,
-    camOn: true,
+    autoMatching: false,   // true while we auto-requeue after peer leaves
+    userStopped: false,    // true if user pressed Stop — don't auto-requeue
     iceQueue: [],
     remoteDescSet: false,
     makingOffer: false,
@@ -465,23 +459,24 @@
 
   // ============ Socket lifecycle ============
   socket.on('connect', () => {
-    if (state.inChat && state.peerId) {
+    // If we were mid-chat before a socket drop, restart the auto-flow.
+    if (state.inChat || state.inQueue) {
       cleanupPeer();
-      setWaitingUI('Reconnected. Press Next to find a stranger.');
       state.inChat = false;
-      state.peerId = null;
-      updateButtons();
+      state.inQueue = false;
+    }
+    if (!state.userStopped) {
+      startAutoMatch();
     }
     refreshStats();
   });
 
   socket.on('disconnect', () => {
-    if (state.inChat) {
+    if (state.inChat || state.inQueue) {
       cleanupPeer();
       state.inChat = false;
-      state.peerId = null;
+      state.inQueue = false;
       showOverlay('error', 'Connection lost', 'Trying to reconnect…');
-      updateButtons();
     }
   });
 
@@ -489,8 +484,7 @@
     state.inQueue = true;
     state.inChat = false;
     state.peerId = null;
-    showOverlay('waiting', 'Looking for someone…', 'You are in the queue. Please wait for a match.');
-    setStatus('waiting', 'Searching for a stranger…');
+    showSearchingUI();
     updateButtons();
     refreshStats();
   });
@@ -503,6 +497,7 @@
     state.remoteDescSet = false;
 
     hideOverlay();
+    liveRing.classList.remove('show');
     setStatus('connected', 'Connected to a stranger');
     remoteBadge.classList.add('live');
     remoteBadgeText.textContent = 'Stranger';
@@ -553,13 +548,23 @@
     catch (_) {}
   });
 
-  socket.on('peer_left', () => endChatUI('Stranger disconnected. Press Next to find someone new.'));
-  socket.on('chat_ended', () => endChatUI('Chat ended.'));
+  socket.on('peer_left', () => {
+    // Auto-requeue: stranger left. Find another one.
+    handlePeerGone('Stranger left. Finding someone new…');
+  });
+
+  socket.on('chat_ended', () => {
+    handlePeerGone('Chat ended. Finding someone new…');
+  });
 
   socket.on('queue_left', () => {
     state.inQueue = false;
-    setStatus('idle', 'Idle — press Start Chat');
-    hideOverlay();
+    if (state.userStopped) {
+      setStatus('idle', 'Stopped — press Next to find a stranger');
+      hideOverlay();
+      liveRing.classList.remove('show');
+      remotePlaceholder.style.display = 'grid';
+    }
     updateButtons();
     refreshStats();
   });
@@ -570,17 +575,14 @@
   });
 
   socket.on('error_message', ({ message }) => toast(message || 'Something went wrong', 'error'));
-  socket.on('blocked', () => { toast('You blocked this stranger.', 'success'); endChatUI('You blocked that stranger.'); });
+  socket.on('blocked', () => { toast('You blocked this stranger.', 'success'); });
 
-  // Incoming message
   socket.on('chat_message', ({ from, text, ts }) => {
     if (from !== state.peerId) return;
     appendMessage(text, 'theirs', ts);
-    // Clear typing indicator
     hideTyping();
   });
 
-  // Typing
   socket.on('typing', ({ from }) => {
     if (from !== state.peerId) return;
     showTyping('Stranger is typing…');
@@ -592,6 +594,57 @@
     if (from !== state.peerId) return;
     hideTyping();
   });
+
+  // ============ Auto-matching flow ============
+  async function startAutoMatch() {
+    if (state.userStopped) return;
+    try {
+      await ensureLocalMedia();
+    } catch (e) {
+      showOverlay('error', 'Camera needed to start', e.message);
+      toast(e.message, 'error');
+      return;
+    }
+    state.autoMatching = true;
+    socket.emit('join_queue');
+    showSearchingUI();
+    updateButtons();
+  }
+
+  function showSearchingUI() {
+    showOverlay('waiting', 'Looking for someone…', 'We are connecting you with a random stranger.');
+    setStatus('waiting', 'Searching for a stranger…');
+    // Show a subtle spinner ring on the remote tile while waiting
+    liveRing.classList.add('show');
+    remotePlaceholder.style.display = 'grid';
+    remoteBadge.classList.remove('live');
+    remoteBadgeText.textContent = 'Searching…';
+  }
+
+  function handlePeerGone(message) {
+    cleanupPeer();
+    clearChatOnEnd();
+    state.inChat = false;
+    state.peerId = null;
+
+    // Automatically re-enter the queue unless the user hit Stop
+    if (state.userStopped) {
+      setStatus('idle', 'Stopped — press Next to find a stranger');
+      hideOverlay();
+      liveRing.classList.remove('show');
+      remotePlaceholder.style.display = 'grid';
+      remoteBadgeText.textContent = 'No stranger';
+      updateButtons();
+      return;
+    }
+
+    socket.emit('join_queue');
+    showOverlay('waiting', 'Finding a new stranger…', message);
+    setStatus('waiting', 'Searching for a new stranger…');
+    liveRing.classList.add('show');
+    remoteBadgeText.textContent = 'Searching…';
+    updateButtons();
+  }
 
   // ============ Media ============
   async function ensureLocalMedia() {
@@ -610,7 +663,6 @@
       localPlaceholder.style.display = 'none';
       btnMic.disabled = false;
       btnCam.disabled = false;
-      state.micOn = true; state.camOn = true;
       syncTrackButtons();
       return stream;
     } catch (err) {
@@ -650,9 +702,10 @@
         setStatus('connected', 'Connected to a stranger');
         remoteBadge.classList.add('live');
         remoteBadgeText.textContent = 'Stranger';
+        liveRing.classList.remove('show');
       } else if (pc.connectionState === 'failed') {
-        toast('Connection failed. Try Next.', 'error');
-        setStatus('idle', 'Connection failed');
+        toast('Connection failed. Finding someone else…', 'error');
+        handlePeerGone('Connection failed. Finding someone new…');
       } else if (pc.connectionState === 'disconnected') {
         setStatus('waiting', 'Connection unstable…');
       }
@@ -696,6 +749,7 @@
     remotePlaceholder.style.display = 'grid';
     remoteBadge.classList.remove('live');
     remoteBadgeText.textContent = 'No stranger';
+    liveRing.classList.remove('show');
   }
 
   // ============ Chat helpers ============
@@ -771,7 +825,6 @@
     overlay.classList.add('show');
   }
   function hideOverlay() { overlay.classList.remove('show'); }
-  function setWaitingUI(text) { showOverlay('waiting', 'Looking for someone…', text || 'Please wait.'); }
 
   function setStatus(kind, text) {
     statusBar.classList.remove('connected','waiting');
@@ -790,22 +843,9 @@
 
   function updateButtons() {
     const busy = state.inChat || state.inQueue;
-    btnStart.disabled = busy;
-    btnStart.style.display = busy ? 'none' : 'inline-flex';
-    btnNext.disabled = !state.inChat;
+    btnNext.disabled = !busy;
     btnStop.disabled = !busy;
     btnReport.disabled = !state.inChat;
-  }
-
-  function endChatUI(message) {
-    cleanupPeer();
-    clearChatOnEnd();
-    state.inChat = false;
-    state.inQueue = false;
-    updateButtons();
-    setStatus('idle', message || 'Idle');
-    hideOverlay();
-    refreshStats();
   }
 
   function syncTrackButtons() {
@@ -814,7 +854,6 @@
     const videoTracks = state.localStream.getVideoTracks();
     const micLive = audioTracks.some(t => t.enabled);
     const camLive = videoTracks.some(t => t.enabled);
-    state.micOn = micLive; state.camOn = camLive;
     $('micIconOn').style.display = micLive ? 'block' : 'none';
     $('micIconOff').style.display = micLive ? 'none' : 'block';
     $('camIconOn').style.display = camLive ? 'block' : 'none';
@@ -835,39 +874,40 @@
   }
 
   // ============ Event wiring ============
-  btnStart.addEventListener('click', async () => {
-    try { await ensureLocalMedia(); }
-    catch (e) {
-      toast(e.message, 'error');
-      showOverlay('error', 'Camera unavailable', e.message);
-      return;
+  btnNext.addEventListener('click', () => {
+    // Skip current stranger. Auto-requeue still active.
+    state.userStopped = false;
+    if (state.inChat || state.inQueue) {
+      cleanupPeer();
+      clearChatOnEnd();
+      state.inChat = false;
+      state.peerId = null;
+      socket.emit('next_stranger');
+      showOverlay('waiting', 'Finding a new stranger…', 'Hang tight, we are finding another stranger.');
+      setStatus('waiting', 'Searching for a new stranger…');
+      liveRing.classList.add('show');
+      remoteBadgeText.textContent = 'Searching…';
+      updateButtons();
+    } else {
+      // Not in chat — just start matching again
+      state.userStopped = false;
+      startAutoMatch();
     }
-    socket.emit('join_queue');
-    showOverlay('waiting', 'Looking for someone…', 'Please wait while we connect you to a random stranger.');
-    setStatus('waiting', 'Searching for a stranger…');
-    updateButtons();
-  });
-
-  btnNext.addEventListener('click', async () => {
-    if (!state.inChat) return;
-    cleanupPeer();
-    clearChatOnEnd();
-    state.inChat = false;
-    state.peerId = null;
-    socket.emit('next_stranger');
-    showOverlay('waiting', 'Looking for someone new…', 'Hang tight, we are finding another stranger.');
-    setStatus('waiting', 'Searching for a new stranger…');
-    updateButtons();
   });
 
   btnStop.addEventListener('click', () => {
+    state.userStopped = true;
+    state.autoMatching = false;
     if (state.inChat || state.inQueue) socket.emit('leave_chat');
     cleanupPeer();
     clearChatOnEnd();
     state.inChat = false;
     state.inQueue = false;
     hideOverlay();
-    setStatus('idle', 'Idle — press Start Chat');
+    liveRing.classList.remove('show');
+    remotePlaceholder.style.display = 'grid';
+    remoteBadgeText.textContent = 'No stranger';
+    setStatus('idle', 'Stopped — press Next to find a stranger');
     updateButtons();
     refreshStats();
   });
@@ -890,7 +930,6 @@
     syncTrackButtons();
   });
 
-  // Chat input — always wired, enabled only when in chat
   chatSend.addEventListener('click', sendChatMessage);
 
   chatInput.addEventListener('keydown', (e) => {
@@ -939,7 +978,8 @@
       reportModal.classList.remove('show');
       $('reportDetails').value = '';
       socket.emit('block_peer');
-      endChatUI('You reported and blocked this stranger.');
+      // Continue auto-matching with someone else
+      handlePeerGone('Reported. Finding someone new…');
     } catch (e) { toast(e.message, 'error'); }
   });
   reportModal.addEventListener('click', (e) => {
@@ -955,6 +995,11 @@
   setInterval(refreshStats, 15000);
   updateButtons();
   refreshStats();
+
+  // Kick off the auto-match flow once the page is ready.
+  // The browser will show its own camera/mic permission prompt.
+  startAutoMatch();
+
   window.__strangerCam = { state, socket };
 })();
 </script>
