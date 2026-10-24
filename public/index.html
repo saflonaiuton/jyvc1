@@ -32,7 +32,6 @@
   }
   .app { height: 100dvh; display: flex; flex-direction: column; }
 
-  /* Header */
   header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 12px 18px; border-bottom: 1px solid var(--border);
@@ -55,17 +54,14 @@
   .header-links a:hover { background: var(--bg-elev); color: var(--text); }
   .header-links a.active { background: rgba(124,92,255,.15); color: #b9a8ff; border-color: var(--accent); }
 
-  /* ---------- Landing screen ---------- */
-  .landing {
-    flex: 1; display: grid; place-items: center; padding: 24px; overflow-y: auto;
-  }
+  /* Landing */
+  .landing { flex: 1; display: grid; place-items: center; padding: 24px; overflow-y: auto; }
   .landing.hidden { display: none; }
   .landing-card {
     width: 100%; max-width: 440px;
     background: var(--bg-soft); border: 1px solid var(--border);
     border-radius: 20px; padding: 32px 28px;
-    box-shadow: var(--shadow);
-    animation: fadeUp .4s ease;
+    box-shadow: var(--shadow); animation: fadeUp .4s ease;
   }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
   .landing-emoji {
@@ -117,7 +113,7 @@
   .btn-start-big:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
   .btn-start-big svg { width: 20px; height: 20px; }
 
-  /* ---------- Chat stage (after match) ---------- */
+  /* Stage */
   .stage-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
   .stage-wrap.hidden { display: none; }
 
@@ -126,7 +122,6 @@
     padding: 10px; display: flex; flex-direction: column;
   }
 
-  /* Remote (stranger) — fills the stage */
   .video-tile.remote {
     position: relative; flex: 1; background: #000;
     border-radius: var(--radius); overflow: hidden;
@@ -183,8 +178,7 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ---------- Local (self) — picture-in-picture overlay ---------- */
-  /* This is the FIX: local video floats in the top-right corner of the remote tile. */
+  /* Local PiP */
   .video-tile.local {
     position: absolute;
     top: 20px; right: 20px;
@@ -200,8 +194,11 @@
   .video-tile.local video {
     width: 100%; height: 100%; object-fit: cover;
     display: block; background: #000;
-    transform: scaleX(-1); /* mirror self-view */
+    /* mirror only for front camera; toggled via class */
+    transition: transform .15s;
   }
+  .video-tile.local video.mirrored { transform: scaleX(-1); }
+
   .video-tile.local .tile-badge {
     top: 6px; left: 6px; padding: 3px 8px; font-size: 10px;
   }
@@ -217,14 +214,43 @@
   .video-tile.local .placeholder h3 { font-size: 11px; }
   .video-tile.local .placeholder p { display: none; }
 
+  /* ▼ NEW: Camera flip button inside PiP (bottom-right of local tile) */
+  .camera-flip-btn {
+    position: absolute;
+    bottom: 6px; right: 6px;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: rgba(0,0,0,.65);
+    border: 1px solid rgba(255,255,255,.2);
+    color: white;
+    display: none; /* hidden by default; shown when ≥ 2 cameras exist */
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 6;
+    transition: background .15s, transform .1s;
+    backdrop-filter: blur(6px);
+  }
+  .camera-flip-btn.show { display: flex; }
+  .camera-flip-btn:hover { background: rgba(124,92,255,.6); }
+  .camera-flip-btn:active { transform: scale(.9); }
+  .camera-flip-btn:disabled { opacity: .4; cursor: wait; }
+  .camera-flip-btn svg { width: 16px; height: 16px; }
+  .camera-flip-btn.spinning svg { animation: spin .6s linear infinite; }
+
   @media (max-width: 720px) {
     .video-tile.local {
       top: 16px; right: 16px;
       width: 110px; height: 84px;
     }
+    .camera-flip-btn {
+      width: 26px; height: 26px;
+      bottom: 4px; right: 4px;
+    }
+    .camera-flip-btn svg { width: 13px; height: 13px; }
   }
 
-  /* ---------- Chat drawer ---------- */
+  /* Chat drawer */
   .chat-drawer {
     flex-shrink: 0;
     background: var(--bg-soft);
@@ -311,7 +337,6 @@
   }
   .chat-input-row button:disabled { opacity: .4; cursor: not-allowed; }
 
-  /* ---------- Searching overlay ---------- */
   .searching-screen {
     position: absolute; inset: 10px;
     background: rgba(10,10,16,.85); backdrop-filter: blur(8px);
@@ -328,7 +353,6 @@
   .searching-screen h2 { font-size: 18px; margin-bottom: 8px; }
   .searching-screen p { color: var(--muted); font-size: 13px; max-width: 280px; margin: 0 auto; }
 
-  /* ---------- Footer controls ---------- */
   footer {
     flex-shrink: 0; padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
     background: rgba(15,15,19,.85); backdrop-filter: blur(12px);
@@ -420,7 +444,6 @@
     </div>
   </header>
 
-  <!-- Landing: name + Start -->
   <div class="landing" id="landingScreen">
     <div class="landing-card">
       <div class="landing-emoji">🎥</div>
@@ -448,7 +471,6 @@
     </div>
   </div>
 
-  <!-- Stage: remote video + local PiP + chat drawer + searching overlay -->
   <div class="stage-wrap hidden" id="stageWrap">
     <div class="stage">
       <div class="video-tile remote" id="remoteTile">
@@ -465,16 +487,25 @@
           </div>
         </div>
 
-        <!-- Local camera PiP — top-right corner -->
         <div class="video-tile local" id="localTile">
           <div class="tile-badge live"><span class="dot"></span>You</div>
-          <video id="localVideo" autoplay playsinline muted></video>
+          <video id="localVideo" autoplay playsinline muted class="mirrored"></video>
           <div class="placeholder" id="localPlaceholder">
             <div>
               <div class="avatar">📷</div>
               <h3>Camera off</h3>
             </div>
           </div>
+
+          <!-- ▼ NEW: camera flip button -->
+          <button class="camera-flip-btn" id="btnFlipCamera" title="Switch camera">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+              <path d="M17 5l2 2"/>
+              <path d="M7 5L5 7"/>
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -601,6 +632,7 @@
   const statusBar = $('statusBar');
   const statusText = $('statusText');
   const toastEl = $('toast');
+  const btnFlipCamera = $('btnFlipCamera');
 
   const btnNext = $('btnNext');
   const btnStop = $('btnStop');
@@ -633,7 +665,11 @@
     unreadCount: 0,
     typingTimer: null,
     lastTypingSent: 0,
-    remoteTypingTimer: null
+    remoteTypingTimer: null,
+    // Camera switching
+    currentFacingMode: 'user',     // 'user' | 'environment'
+    availableCameras: [],          // MediaDeviceInfo[]
+    isSwitchingCamera: false
   };
 
   const socket = io({ transports: ['websocket','polling'], reconnection: true, query: { mode: 'video' } });
@@ -673,7 +709,6 @@
     state.myName = v.name;
     localStorage.setItem('displayName', v.name);
 
-    // Ask camera/mic permission BEFORE hiding landing so user sees prompt in context
     try {
       await ensureLocalMedia();
     } catch (e) {
@@ -682,12 +717,10 @@
       return;
     }
 
-    // Switch to stage
     landingScreen.classList.add('hidden');
     stageWrap.classList.remove('hidden');
     footer.style.display = 'block';
 
-    // Start matching
     socket.emit('join_queue', { name: state.myName });
     showSearchingUI();
   });
@@ -695,7 +728,6 @@
   // ============ Socket lifecycle ============
   socket.on('connect', () => {
     if (state.inChat || state.inQueue) {
-      // Reconnected mid-session — restart
       resetToLanding('Connection restored. Click Start to reconnect.');
     }
   });
@@ -799,7 +831,25 @@
     if (state.remoteTypingTimer) { clearTimeout(state.remoteTypingTimer); state.remoteTypingTimer = null; }
   });
 
-  // ============ Media ============
+  // ============ Camera / Media ============
+  /**
+   * Detect how many video input devices exist and show the flip button if ≥ 2.
+   * Note: device labels are only visible after permission is granted once,
+   * so we call this after getUserMedia succeeds.
+   */
+  async function detectCameras() {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter(d => d.kind === 'videoinput');
+      state.availableCameras = cams;
+      const show = cams.length >= 2;
+      btnFlipCamera.classList.toggle('show', show);
+    } catch (_) {
+      btnFlipCamera.classList.remove('show');
+    }
+  }
+
   async function ensureLocalMedia() {
     if (state.localStream && state.localStream.active) return state.localStream;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -807,23 +857,167 @@
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: state.currentFacingMode
+        },
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
       });
       state.localStream = stream;
       localVideo.srcObject = stream;
       localVideo.muted = true;
       localPlaceholder.style.display = 'none';
+      applyMirrorState();
       syncTrackButtons();
+      await detectCameras();
       return stream;
     } catch (err) {
       let msg = 'Could not access camera/microphone.';
       if (err.name === 'NotAllowedError') msg = 'Camera/mic permission denied.';
       else if (err.name === 'NotFoundError') msg = 'No camera or microphone found.';
       else if (err.name === 'NotReadableError') msg = 'Camera is in use by another app.';
+      else if (err.name === 'OverconstrainedError') {
+        // Fallback — retry without facingMode
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+          });
+          state.localStream = stream;
+          localVideo.srcObject = stream;
+          localVideo.muted = true;
+          localPlaceholder.style.display = 'none';
+          applyMirrorState();
+          syncTrackButtons();
+          await detectCameras();
+          return stream;
+        } catch (e2) {
+          throw new Error('Camera constraints not supported: ' + e2.message);
+        }
+      }
       throw new Error(msg);
     }
   }
+
+  /**
+   * Flip between front ('user') and back ('environment') camera.
+   * Replaces the video track on the local stream, updates the local preview,
+   * and swaps the sender track on the live RTCPeerConnection if in a call.
+   */
+  async function flipCamera() {
+    if (state.isSwitchingCamera) return;
+    if (!state.localStream) return;
+
+    state.isSwitchingCamera = true;
+    btnFlipCamera.disabled = true;
+    btnFlipCamera.classList.add('spinning');
+
+    const nextFacing = state.currentFacingMode === 'user' ? 'environment' : 'user';
+
+    try {
+      // Stop the old video tracks first so the camera releases
+      const oldVideoTracks = state.localStream.getVideoTracks();
+      oldVideoTracks.forEach(t => { try { t.stop(); } catch (_) {} });
+
+      // Get a new stream with the target facing mode
+      let newStream;
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: nextFacing
+          },
+          audio: false   // keep the existing audio track untouched
+        });
+      } catch (err) {
+        // Some browsers reject 'environment' on desktop — try with deviceId if we have 2+ cams
+        if (state.availableCameras.length >= 2) {
+          const otherCam = state.availableCameras.find(c =>
+            c.deviceId && c.deviceId !== oldVideoTracks[0]?.getSettings?.().deviceId
+          );
+          if (otherCam) {
+            newStream = await navigator.mediaDevices.getUserMedia({
+              video: { deviceId: { exact: otherCam.deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } },
+              audio: false
+            });
+          } else {
+            throw err;
+          }
+        } else {
+          throw err;
+        }
+      }
+
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      if (!newVideoTrack) throw new Error('No video track from new camera.');
+
+      // Replace the video track in our local media stream
+      state.localStream.removeTrack(oldVideoTracks[0]);
+      state.localStream.addTrack(newVideoTrack);
+
+      // Update the local preview
+      localVideo.srcObject = state.localStream;
+      localVideo.muted = true;
+
+      // Mirror only front-facing
+      state.currentFacingMode = nextFacing;
+      applyMirrorState();
+
+      // Preserve mute state (if video was disabled, keep it disabled)
+      newVideoTrack.enabled = state.camOn;
+
+      // Swap the outgoing track on the live peer connection (in-call)
+      if (state.pc) {
+        const sender = state.pc.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender) await sender.replaceTrack(newVideoTrack);
+      }
+
+      syncTrackButtons();
+      toast(nextFacing === 'user' ? 'Front camera' : 'Back camera', 'success');
+    } catch (err) {
+      console.warn('Camera flip failed:', err);
+      toast('Could not switch camera. ' + (err.message || ''), 'error');
+      // Attempt to restore the previous camera
+      try {
+        const restoreFacing = state.currentFacingMode; // unchanged since we errored before assignment
+        const restoreStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: restoreFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+        const t = restoreStream.getVideoTracks()[0];
+        // Clean any current video track and re-add
+        state.localStream.getVideoTracks().forEach(x => { try { x.stop(); } catch (_) {} });
+        state.localStream.getVideoTracks().forEach(x => state.localStream.removeTrack(x));
+        state.localStream.addTrack(t);
+        localVideo.srcObject = state.localStream;
+        if (state.pc) {
+          const sender = state.pc.getSenders().find(s => s.track && s.track.kind === 'video');
+          if (sender) await sender.replaceTrack(t);
+        }
+      } catch (_) { /* give up */ }
+    } finally {
+      state.isSwitchingCamera = false;
+      btnFlipCamera.disabled = false;
+      btnFlipCamera.classList.remove('spinning');
+    }
+  }
+
+  function applyMirrorState() {
+    // Mirror the local preview only for the front (selfie) camera.
+    if (state.currentFacingMode === 'user') {
+      localVideo.classList.add('mirrored');
+    } else {
+      localVideo.classList.remove('mirrored');
+    }
+  }
+
+  // Wire the flip button
+  btnFlipCamera.addEventListener('click', (e) => {
+    e.stopPropagation();
+    flipCamera();
+  });
 
   async function ensurePeerConnection() {
     if (state.pc) return state.pc;
@@ -994,7 +1188,6 @@
     clearChatOnEnd();
     state.inChat = false;
     state.peerId = null;
-    // Auto-requeue so user is matched to someone new
     if (state.socket.connected) {
       socket.emit('join_queue', { name: state.myName });
       showSearchingUI();
@@ -1021,6 +1214,7 @@
     const videoTracks = state.localStream.getVideoTracks();
     const micLive = audioTracks.some(t => t.enabled);
     const camLive = videoTracks.some(t => t.enabled);
+    state.micOn = micLive; state.camOn = camLive;
     $('micIconOn').style.display = micLive ? 'block' : 'none';
     $('micIconOff').style.display = micLive ? 'none' : 'block';
     $('camIconOn').style.display = camLive ? 'block' : 'none';
@@ -1094,7 +1288,6 @@
     }, 2500);
   });
 
-  // Report
   const reportModal = $('reportModal');
   btnReport.addEventListener('click', () => { if (state.inChat) reportModal.classList.add('show'); });
   $('reportCancel').addEventListener('click', () => reportModal.classList.remove('show'));
@@ -1130,4 +1323,4 @@
 })();
 </script>
 </body>
-  </html>
+</html>
