@@ -179,7 +179,7 @@
 
   .chat-controls {
     flex-shrink: 0; display: flex; gap: 8px;
-    padding: 0 16px calc(12px + env(safe-area-inset-bottom));
+    padding: 0 16px 12px;
     background: var(--bg-soft);
   }
   .chat-controls .btn {
@@ -193,6 +193,40 @@
   .chat-controls .btn.next { background: linear-gradient(135deg, var(--accent), #5b3fd6); border-color: transparent; color: white; }
   .chat-controls .btn.stop { background: rgba(255,77,109,.12); border-color: rgba(255,77,109,.4); color: #ff8fa3; }
   .chat-controls .btn svg { width: 15px; height: 15px; }
+
+  /* ============================================================
+     ▼ NEW: Site footer
+     ============================================================ */
+  .site-footer {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    background: rgba(10,10,16,.6);
+    padding: 8px 14px calc(8px + env(safe-area-inset-bottom));
+    display: flex; align-items: center; justify-content: center;
+    gap: 14px; flex-wrap: wrap;
+    font-size: 11px; color: var(--muted);
+    z-index: 21;
+    position: relative;
+  }
+  .site-footer a {
+    color: var(--muted); text-decoration: none;
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 6px;
+    transition: background .15s, color .15s;
+  }
+  .site-footer a:hover {
+    color: var(--accent-2);
+    background: rgba(124,92,255,.1);
+  }
+  .site-footer .fb-link:hover { color: #4dabf7; }
+  .site-footer .sep {
+    width: 1px; height: 12px; background: var(--border);
+  }
+  .site-footer svg { width: 12px; height: 12px; }
+  @media (max-width: 540px) {
+    .site-footer { font-size: 10px; gap: 8px; padding: 6px 10px calc(6px + env(safe-area-inset-bottom)); }
+    .site-footer .sep { display: none; }
+  }
 
   .toast {
     position: fixed; top: 70px; left: 50%; transform: translateX(-50%) translateY(-20px);
@@ -275,6 +309,22 @@
         Stop
       </button>
     </div>
+  </div>
+
+  <!-- ▼ NEW: Site footer -->
+  <div class="site-footer">
+    <a href="https://www.facebook.com/profile.php?id=61590490534032"
+       target="_blank" rel="noopener noreferrer"
+       class="fb-link"
+       title="Visit Jay Bohol/Selov on Facebook">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+      All Rights Reserved — Jay Bohol/Selov
+    </a>
+    <span class="sep"></span>
+    <a href="mailto:bohol.jay@llcc.edu.ph" title="Send email">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 7 10-7"/></svg>
+      bohol.jay@llcc.edu.ph
+    </a>
   </div>
 </div>
 
