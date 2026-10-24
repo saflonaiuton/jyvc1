@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <meta name="theme-color" content="#0f0f13" />
-<title>Stranger Cam — Video Chat</title>
+<title>Stranger Cam — Random Video Chat</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
   :root {
@@ -32,6 +32,7 @@
   }
   .app { height: 100dvh; display: flex; flex-direction: column; }
 
+  /* Header */
   header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 12px 18px; border-bottom: 1px solid var(--border);
@@ -45,7 +46,6 @@
     display: grid; place-items: center; font-size: 15px;
   }
   .brand span { font-size: 16px; }
-  .brand small { color: var(--muted); font-weight: 500; font-size: 11px; margin-left: 4px; }
   .header-links { display: flex; gap: 8px; align-items: center; }
   .header-links a {
     font-size: 12px; color: var(--muted); text-decoration: none;
@@ -55,43 +55,118 @@
   .header-links a:hover { background: var(--bg-elev); color: var(--text); }
   .header-links a.active { background: rgba(124,92,255,.15); color: #b9a8ff; border-color: var(--accent); }
 
-  main {
-    flex: 1; position: relative; overflow: hidden; display: flex; min-height: 0;
+  /* ---------- Landing screen ---------- */
+  .landing {
+    flex: 1; display: grid; place-items: center; padding: 24px; overflow-y: auto;
   }
+  .landing.hidden { display: none; }
+  .landing-card {
+    width: 100%; max-width: 440px;
+    background: var(--bg-soft); border: 1px solid var(--border);
+    border-radius: 20px; padding: 32px 28px;
+    box-shadow: var(--shadow);
+    animation: fadeUp .4s ease;
+  }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  .landing-emoji {
+    font-size: 52px; text-align: center; margin-bottom: 8px;
+    filter: drop-shadow(0 4px 20px rgba(124,92,255,.4));
+  }
+  .landing h1 {
+    font-size: 24px; text-align: center; margin-bottom: 8px;
+    background: linear-gradient(135deg, #b9a8ff, var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .landing p {
+    text-align: center; color: var(--muted); font-size: 13px;
+    margin-bottom: 26px; line-height: 1.6;
+  }
+  .name-field { position: relative; margin-bottom: 20px; }
+  .name-field label {
+    display: block; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; font-weight: 600;
+  }
+  .name-field input {
+    width: 100%; background: var(--bg); border: 2px solid var(--border);
+    color: var(--text); padding: 14px 16px 14px 46px;
+    border-radius: 14px; font-size: 15px; font-family: inherit;
+    outline: none; transition: border-color .2s, box-shadow .2s;
+  }
+  .name-field input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(124,92,255,.15);
+  }
+  .name-field .icon {
+    position: absolute; left: 16px; bottom: 16px;
+    font-size: 18px; pointer-events: none; color: var(--muted);
+  }
+  .name-hint { font-size: 11px; color: var(--muted); margin-top: -12px; margin-bottom: 20px; text-align: center; }
+  .name-hint.error { color: var(--danger); }
+
+  .btn-start-big {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent), #5b3fd6);
+    border: none; color: white; padding: 16px;
+    border-radius: 14px; font-size: 15px; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+    box-shadow: 0 8px 24px rgba(124,92,255,.4);
+    transition: transform .1s, box-shadow .15s;
+  }
+  .btn-start-big:hover { box-shadow: 0 10px 30px rgba(124,92,255,.55); }
+  .btn-start-big:active { transform: scale(.98); }
+  .btn-start-big:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+  .btn-start-big svg { width: 20px; height: 20px; }
+
+  /* ---------- Chat stage (after match) ---------- */
+  .stage-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .stage-wrap.hidden { display: none; }
+
   .stage {
-    flex: 1; position: relative; display: flex; gap: 10px; padding: 10px;
-    min-height: 0; min-width: 0;
+    flex: 1; position: relative; min-height: 0;
+    padding: 10px; display: flex; flex-direction: column;
   }
-  .video-tile {
+
+  /* Remote (stranger) — fills the stage */
+  .video-tile.remote {
     position: relative; flex: 1; background: #000;
     border-radius: var(--radius); overflow: hidden;
-    border: 1px solid var(--border); min-width: 0; min-height: 0;
+    border: 1px solid var(--border); min-height: 0;
   }
-  .video-tile video { width: 100%; height: 100%; object-fit: cover; display: block; background: #000; }
+  .video-tile.remote video {
+    width: 100%; height: 100%; object-fit: cover;
+    display: block; background: #000;
+  }
   .tile-badge {
     position: absolute; top: 10px; left: 10px; z-index: 3;
     background: rgba(0,0,0,.55); backdrop-filter: blur(6px);
     padding: 5px 10px; border-radius: 999px; font-size: 11px;
-    border: 1px solid rgba(255,255,255,.1); display: flex; align-items: center; gap: 6px;
+    border: 1px solid rgba(255,255,255,.1);
+    display: flex; align-items: center; gap: 6px;
   }
-  .tile-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
-  .tile-badge.live .dot { background: var(--accent-2); box-shadow: 0 0 8px var(--accent-2); animation: pulse 1.6s infinite; }
+  .tile-badge .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--muted);
+  }
+  .tile-badge.live .dot {
+    background: var(--accent-2);
+    box-shadow: 0 0 8px var(--accent-2);
+    animation: pulse 1.6s infinite;
+  }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
-  .video-tile.remote .placeholder,
-  .video-tile.local .placeholder {
-    position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
+
+  .video-tile.remote .placeholder {
+    position: absolute; inset: 0;
+    display: grid; place-items: center; text-align: center;
     background: linear-gradient(160deg,#14141c,#0b0b10); padding: 20px;
   }
   .placeholder .avatar {
     width: 84px; height: 84px; border-radius: 50%;
     background: linear-gradient(135deg,#2a2a3e,#1a1a28);
-    display: grid; place-items: center; font-size: 34px; margin: 0 auto 14px;
-    border: 1px solid var(--border);
+    display: grid; place-items: center; font-size: 34px;
+    margin: 0 auto 14px; border: 1px solid var(--border);
   }
   .placeholder h3 { font-size: 15px; margin-bottom: 6px; }
   .placeholder p { font-size: 12px; color: var(--muted); max-width: 240px; margin: 0 auto; line-height: 1.5; }
-
-  .video-tile.local { flex: 0 0 34%; max-width: 420px; }
 
   .live-ring {
     position: absolute; inset: 0; display: none;
@@ -108,21 +183,48 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .overlay {
-    position: absolute; inset: 0; z-index: 10;
-    background: rgba(10,10,16,.72); backdrop-filter: blur(6px);
-    display: none; place-items: center; text-align: center; padding: 20px;
+  /* ---------- Local (self) — picture-in-picture overlay ---------- */
+  /* This is the FIX: local video floats in the top-right corner of the remote tile. */
+  .video-tile.local {
+    position: absolute;
+    top: 20px; right: 20px;
+    width: 180px; height: 135px;
+    z-index: 5;
+    background: #000;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 2px solid rgba(255,255,255,.15);
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    transition: width .2s, height .2s;
   }
-  .overlay.show { display: grid; }
-  .spinner {
-    width: 60px; height: 60px; border-radius: 50%;
-    border: 3px solid rgba(124,92,255,.25); border-top-color: var(--accent);
-    animation: spin 1s linear infinite; margin: 0 auto 18px;
+  .video-tile.local video {
+    width: 100%; height: 100%; object-fit: cover;
+    display: block; background: #000;
+    transform: scaleX(-1); /* mirror self-view */
   }
-  .overlay h2 { font-size: 18px; margin-bottom: 6px; }
-  .overlay p { color: var(--muted); font-size: 13px; max-width: 300px; margin: 0 auto; }
-  .overlay .big-emoji { font-size: 46px; margin-bottom: 12px; }
+  .video-tile.local .tile-badge {
+    top: 6px; left: 6px; padding: 3px 8px; font-size: 10px;
+  }
+  .video-tile.local .placeholder {
+    position: absolute; inset: 0;
+    display: grid; place-items: center; text-align: center;
+    background: linear-gradient(160deg,#14141c,#0b0b10);
+    padding: 10px;
+  }
+  .video-tile.local .placeholder .avatar {
+    width: 40px; height: 40px; font-size: 18px; margin-bottom: 6px;
+  }
+  .video-tile.local .placeholder h3 { font-size: 11px; }
+  .video-tile.local .placeholder p { display: none; }
 
+  @media (max-width: 720px) {
+    .video-tile.local {
+      top: 16px; right: 16px;
+      width: 110px; height: 84px;
+    }
+  }
+
+  /* ---------- Chat drawer ---------- */
   .chat-drawer {
     flex-shrink: 0;
     background: var(--bg-soft);
@@ -140,11 +242,16 @@
     padding: 8px 16px; border-bottom: 1px solid var(--border);
     flex-shrink: 0; gap: 10px;
   }
-  .chat-drawer-header h3 { font-size: 13px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .chat-drawer-header h3 {
+    font-size: 13px; display: flex; align-items: center; gap: 8px;
+    white-space: nowrap;
+  }
   .chat-drawer-header h3 .status-dot {
     width: 8px; height: 8px; border-radius: 50%; background: var(--muted);
   }
-  .chat-drawer-header h3 .status-dot.active { background: var(--accent-2); box-shadow: 0 0 8px var(--accent-2); }
+  .chat-drawer-header h3 .status-dot.active {
+    background: var(--accent-2); box-shadow: 0 0 8px var(--accent-2);
+  }
   .chat-typing {
     flex: 1; text-align: center;
     font-size: 11px; color: var(--accent-2); font-style: italic;
@@ -152,7 +259,8 @@
   }
   .chat-close {
     background: none; border: none; color: var(--muted); cursor: pointer;
-    font-size: 20px; padding: 2px 8px; border-radius: 8px; line-height: 1; flex-shrink: 0;
+    font-size: 20px; padding: 2px 8px; border-radius: 8px; line-height: 1;
+    flex-shrink: 0;
   }
   .chat-close:hover { background: var(--bg-elev); color: var(--text); }
   .chat-messages {
@@ -168,7 +276,6 @@
   }
   .chat-empty .emoji { font-size: 24px; margin-bottom: 6px; opacity: .7; }
   .chat-empty p { font-size: 12px; max-width: 260px; line-height: 1.5; }
-
   .msg {
     max-width: 78%; padding: 7px 12px; border-radius: 14px;
     font-size: 13px; line-height: 1.4; word-wrap: break-word;
@@ -186,7 +293,6 @@
     border-bottom-left-radius: 4px;
   }
   .msg .time { display: block; font-size: 9px; opacity: .6; margin-top: 3px; }
-
   .chat-input-row {
     display: flex; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--border);
     flex-shrink: 0; align-items: center;
@@ -205,6 +311,24 @@
   }
   .chat-input-row button:disabled { opacity: .4; cursor: not-allowed; }
 
+  /* ---------- Searching overlay ---------- */
+  .searching-screen {
+    position: absolute; inset: 10px;
+    background: rgba(10,10,16,.85); backdrop-filter: blur(8px);
+    border-radius: var(--radius);
+    display: none; place-items: center; text-align: center; padding: 20px;
+    z-index: 8;
+  }
+  .searching-screen.show { display: grid; }
+  .searching-screen .spinner {
+    width: 64px; height: 64px; border-radius: 50%;
+    border: 3px solid rgba(124,92,255,.25); border-top-color: var(--accent);
+    animation: spin 1s linear infinite; margin: 0 auto 22px;
+  }
+  .searching-screen h2 { font-size: 18px; margin-bottom: 8px; }
+  .searching-screen p { color: var(--muted); font-size: 13px; max-width: 280px; margin: 0 auto; }
+
+  /* ---------- Footer controls ---------- */
   footer {
     flex-shrink: 0; padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
     background: rgba(15,15,19,.85); backdrop-filter: blur(12px);
@@ -222,18 +346,12 @@
   .btn:active:not(:disabled) { transform: scale(.97); }
   .btn:disabled { opacity: .38; cursor: not-allowed; }
   .btn.icon { padding: 11px 12px; }
-  .btn.primary {
-    background: linear-gradient(135deg, var(--accent), #5b3fd6);
-    border-color: transparent; box-shadow: 0 6px 20px rgba(124,92,255,.35);
-  }
-  .btn.primary:hover:not(:disabled) { background: linear-gradient(135deg,#8d70ff,#6a4ee8); }
   .btn.danger { background: rgba(255,77,109,.12); border-color: rgba(255,77,109,.4); color: #ff8fa3; }
   .btn.danger:hover:not(:disabled) { background: rgba(255,77,109,.22); }
   .btn.muted { background: rgba(255,176,32,.12); border-color: rgba(255,176,32,.4); color: var(--warn); }
   .btn.active { background: rgba(124,92,255,.2); border-color: var(--accent); color: #b9a8ff; }
   .btn svg { width: 16px; height: 16px; }
   .control-group { display: flex; gap: 8px; }
-
   .btn .badge {
     background: var(--danger); color: white; font-size: 10px;
     padding: 1px 6px; border-radius: 999px; font-weight: 700;
@@ -241,7 +359,6 @@
     display: none;
   }
   .btn .badge.show { display: inline-block; }
-
   .status-bar {
     text-align: center; font-size: 12px; color: var(--muted); margin-top: 8px;
     display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -259,7 +376,6 @@
   }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   #toast.error { border-color: rgba(255,77,109,.5); }
-  #toast.success { border-color: rgba(0,212,170,.5); }
 
   .modal {
     position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.6);
@@ -282,10 +398,6 @@
   .modal-card textarea { min-height: 70px; }
   .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
-  @media (max-width: 720px) {
-    .stage { flex-direction: column-reverse; }
-    .video-tile.local { flex: 0 0 30%; max-width: none; }
-  }
   @media (max-width: 540px) {
     .controls { gap: 6px; }
     .btn { padding: 10px 12px; font-size: 12px; }
@@ -308,30 +420,69 @@
     </div>
   </header>
 
-  <main>
+  <!-- Landing: name + Start -->
+  <div class="landing" id="landingScreen">
+    <div class="landing-card">
+      <div class="landing-emoji">🎥</div>
+      <h1>Meet a Stranger on Video</h1>
+      <p>Get matched with a random stranger from around the world. Turn on your camera and say hi!</p>
+
+      <div class="name-field">
+        <label for="nameInput">Your display name</label>
+        <span class="icon">👤</span>
+        <input
+          type="text"
+          id="nameInput"
+          placeholder="e.g. Alex, Sam, Jay…"
+          maxlength="24"
+          autocomplete="off"
+          autocapitalize="words"
+        />
+      </div>
+      <div class="name-hint" id="nameHint">This is what strangers will see. You can change it any time.</div>
+
+      <button class="btn-start-big" id="btnStart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Start Chat
+      </button>
+    </div>
+  </div>
+
+  <!-- Stage: remote video + local PiP + chat drawer + searching overlay -->
+  <div class="stage-wrap hidden" id="stageWrap">
     <div class="stage">
       <div class="video-tile remote" id="remoteTile">
-        <div class="tile-badge" id="remoteBadge"><span class="dot"></span><span id="remoteBadgeText">No stranger</span></div>
+        <div class="tile-badge" id="remoteBadge">
+          <span class="dot"></span><span id="remoteBadgeText">No stranger</span>
+        </div>
         <video id="remoteVideo" autoplay playsinline></video>
         <div class="live-ring" id="liveRing"><div class="ring"></div></div>
         <div class="placeholder" id="remotePlaceholder">
           <div>
             <div class="avatar">👋</div>
-            <h3>Meet a stranger on video</h3>
-            <p>Click Start Chat to get matched with a random stranger.</p>
+            <h3>Waiting for a stranger</h3>
+            <p>We'll connect you to someone shortly.</p>
+          </div>
+        </div>
+
+        <!-- Local camera PiP — top-right corner -->
+        <div class="video-tile local" id="localTile">
+          <div class="tile-badge live"><span class="dot"></span>You</div>
+          <video id="localVideo" autoplay playsinline muted></video>
+          <div class="placeholder" id="localPlaceholder">
+            <div>
+              <div class="avatar">📷</div>
+              <h3>Camera off</h3>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="video-tile local" id="localTile">
-        <div class="tile-badge live"><span class="dot"></span>You</div>
-        <video id="localVideo" autoplay playsinline muted></video>
-        <div class="placeholder" id="localPlaceholder">
-          <div>
-            <div class="avatar">📷</div>
-            <h3>Camera off</h3>
-            <p>Click Start Chat to enable your camera.</p>
-          </div>
+      <div class="searching-screen" id="searchingScreen">
+        <div>
+          <div class="spinner"></div>
+          <h2>Looking for someone…</h2>
+          <p>Please wait while we connect you with a stranger.</p>
         </div>
       </div>
     </div>
@@ -353,56 +504,42 @@
         <button id="chatSend" disabled title="Send">➤</button>
       </div>
     </aside>
+  </div>
 
-    <div class="overlay" id="overlay">
-      <div>
-        <div class="spinner" id="overlaySpinner"></div>
-        <div class="big-emoji" id="overlayEmoji" style="display:none"></div>
-        <h2 id="overlayTitle">Connecting…</h2>
-        <p id="overlayText">Looking for a stranger to connect you with.</p>
-      </div>
-    </div>
-  </main>
-
-  <footer>
+  <footer id="footer" style="display:none">
     <div class="controls">
-      <button class="btn primary" id="btnStart">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        <span class="label">Start Chat</span>
-      </button>
-
       <div class="control-group">
-        <button class="btn icon" id="btnMic" title="Mute microphone" disabled>
+        <button class="btn icon" id="btnMic" title="Mute microphone">
           <svg id="micIconOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
           <svg id="micIconOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
         </button>
-        <button class="btn icon" id="btnCam" title="Turn off camera" disabled>
+        <button class="btn icon" id="btnCam" title="Turn off camera">
           <svg id="camIconOn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
           <svg id="camIconOff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><line x1="1" y1="1" x2="23" y2="23"/><path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34"/><path d="M16 16l7 7"/><polygon points="23 7 16 12 23 17 23 7"/></svg>
         </button>
       </div>
 
-      <button class="btn icon" id="btnChat" title="Open chat" disabled>
+      <button class="btn icon" id="btnChat" title="Open chat">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span class="badge" id="chatBadge">0</span>
       </button>
 
-      <button class="btn icon danger" id="btnReport" title="Report stranger" disabled>
+      <button class="btn icon danger" id="btnReport" title="Report stranger">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
       </button>
 
-      <button class="btn" id="btnNext" disabled>
+      <button class="btn" id="btnNext">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
         <span class="label">Next</span>
       </button>
 
-      <button class="btn danger" id="btnStop" disabled>
+      <button class="btn danger" id="btnStop">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
         <span class="label">Stop</span>
       </button>
     </div>
     <div class="status-bar" id="statusBar">
-      <span class="dot"></span><span id="statusText">Idle — press Start Chat</span>
+      <span class="dot"></span><span id="statusText">Connecting…</span>
     </div>
   </footer>
 </div>
@@ -446,6 +583,13 @@
   };
 
   const $ = (id) => document.getElementById(id);
+  const landingScreen = $('landingScreen');
+  const stageWrap = $('stageWrap');
+  const footer = $('footer');
+  const nameInput = $('nameInput');
+  const nameHint = $('nameHint');
+  const btnStart = $('btnStart');
+
   const localVideo = $('localVideo');
   const remoteVideo = $('remoteVideo');
   const localPlaceholder = $('localPlaceholder');
@@ -453,16 +597,11 @@
   const liveRing = $('liveRing');
   const remoteBadge = $('remoteBadge');
   const remoteBadgeText = $('remoteBadgeText');
-  const overlay = $('overlay');
-  const overlaySpinner = $('overlaySpinner');
-  const overlayEmoji = $('overlayEmoji');
-  const overlayTitle = $('overlayTitle');
-  const overlayText = $('overlayText');
+  const searchingScreen = $('searchingScreen');
   const statusBar = $('statusBar');
   const statusText = $('statusText');
   const toastEl = $('toast');
 
-  const btnStart = $('btnStart');
   const btnNext = $('btnNext');
   const btnStop = $('btnStop');
   const btnMic = $('btnMic');
@@ -482,6 +621,7 @@
 
   const state = {
     socket: null,
+    myName: '',
     localStream: null,
     pc: null,
     peerId: null,
@@ -499,25 +639,70 @@
   const socket = io({ transports: ['websocket','polling'], reconnection: true, query: { mode: 'video' } });
   state.socket = socket;
 
+  // ============ Name validation ============
+  function validateName(raw) {
+    const name = (raw || '').trim();
+    if (name.length < 2) return { ok: false, error: 'Name must be at least 2 characters.' };
+    if (name.length > 24) return { ok: false, error: 'Name must be 24 characters or less.' };
+    if (!/^[\p{L}\p{N} _.\-']+$/u.test(name)) {
+      return { ok: false, error: 'Only letters, numbers, spaces, dots, dashes allowed.' };
+    }
+    return { ok: true, name };
+  }
+
+  const savedName = localStorage.getItem('displayName');
+  if (savedName) nameInput.value = savedName;
+
+  nameInput.addEventListener('input', () => {
+    nameHint.classList.remove('error');
+    nameHint.textContent = 'This is what strangers will see. You can change it any time.';
+  });
+  nameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); btnStart.click(); }
+  });
+
+  // ============ Start button ============
+  btnStart.addEventListener('click', async () => {
+    const v = validateName(nameInput.value);
+    if (!v.ok) {
+      nameHint.textContent = v.error;
+      nameHint.classList.add('error');
+      nameInput.focus();
+      return;
+    }
+    state.myName = v.name;
+    localStorage.setItem('displayName', v.name);
+
+    // Ask camera/mic permission BEFORE hiding landing so user sees prompt in context
+    try {
+      await ensureLocalMedia();
+    } catch (e) {
+      nameHint.textContent = e.message;
+      nameHint.classList.add('error');
+      return;
+    }
+
+    // Switch to stage
+    landingScreen.classList.add('hidden');
+    stageWrap.classList.remove('hidden');
+    footer.style.display = 'block';
+
+    // Start matching
+    socket.emit('join_queue', { name: state.myName });
+    showSearchingUI();
+  });
+
+  // ============ Socket lifecycle ============
   socket.on('connect', () => {
     if (state.inChat || state.inQueue) {
-      cleanupPeer();
-      clearChatOnEnd();
-      state.inChat = false;
-      state.inQueue = false;
-      updateButtons();
-      setStatus('idle', 'Reconnected. Press Start Chat.');
+      // Reconnected mid-session — restart
+      resetToLanding('Connection restored. Click Start to reconnect.');
     }
-    refreshStats();
   });
 
   socket.on('disconnect', () => {
     if (state.inChat || state.inQueue) {
-      cleanupPeer();
-      state.inChat = false;
-      state.inQueue = false;
-      showOverlay('error', 'Connection lost', 'Trying to reconnect…');
-      updateButtons();
+      resetToLanding('Connection lost. Click Start to reconnect.');
     }
   });
 
@@ -526,27 +711,22 @@
     state.inChat = false;
     state.peerId = null;
     showSearchingUI();
-    updateButtons();
-    refreshStats();
   });
 
-  socket.on('match_found', async ({ peerId, initiator }) => {
+  socket.on('match_found', async ({ peerId, peerName, initiator }) => {
     state.inQueue = false;
     state.inChat = true;
     state.peerId = peerId;
     state.iceQueue = [];
     state.remoteDescSet = false;
 
-    hideOverlay();
-    liveRing.classList.remove('show');
-    setStatus('connected', 'Connected to a stranger');
+    hideSearchingUI();
+    setStatus('connected', `Connected to ${peerName || 'a stranger'}`);
     remoteBadge.classList.add('live');
-    remoteBadgeText.textContent = 'Stranger';
+    remoteBadgeText.textContent = peerName || 'Stranger';
     remotePlaceholder.style.display = 'none';
 
     resetChatForNewPeer();
-    updateButtons();
-    refreshStats();
 
     try {
       await ensurePeerConnection();
@@ -585,24 +765,16 @@
     try { await state.pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch (_) {}
   });
 
-  socket.on('peer_left', () => endChatUI('Stranger left. Press Start to find someone new.'));
-  socket.on('chat_ended', () => endChatUI('Chat ended.'));
+  socket.on('peer_left', () => endChatUI('Stranger left. Finding someone new…'));
+  socket.on('chat_ended', () => endChatUI('Chat ended. Finding someone new…'));
 
   socket.on('queue_left', () => {
     state.inQueue = false;
-    setStatus('idle', 'Idle — press Start Chat');
-    hideOverlay();
-    updateButtons();
-    refreshStats();
+    resetToLanding('You left the queue.');
   });
 
-  socket.on('stats_update', (s) => {
-    if (typeof s.online === 'number') $('statOnline') && ($('statOnline').textContent = s.online);
-    if (typeof s.waiting === 'number') $('statWaiting') && ($('statWaiting').textContent = s.waiting);
-  });
-
-  socket.on('error_message', ({ message }) => toast(message || 'Something went wrong', 'error'));
-  socket.on('blocked', () => { toast('You blocked this stranger.', 'success'); });
+  socket.on('error_message', ({ message }) => toast(message || 'Error', 'error'));
+  socket.on('blocked', () => toast('You blocked this stranger.', 'success'));
 
   socket.on('chat_message', ({ from, text, ts }) => {
     if (from !== state.peerId) return;
@@ -627,6 +799,7 @@
     if (state.remoteTypingTimer) { clearTimeout(state.remoteTypingTimer); state.remoteTypingTimer = null; }
   });
 
+  // ============ Media ============
   async function ensureLocalMedia() {
     if (state.localStream && state.localStream.active) return state.localStream;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -641,8 +814,6 @@
       localVideo.srcObject = stream;
       localVideo.muted = true;
       localPlaceholder.style.display = 'none';
-      btnMic.disabled = false;
-      btnCam.disabled = false;
       syncTrackButtons();
       return stream;
     } catch (err) {
@@ -676,7 +847,6 @@
       if (pc.connectionState === 'connected') {
         setStatus('connected', 'Connected to a stranger');
         remoteBadge.classList.add('live');
-        remoteBadgeText.textContent = 'Stranger';
         liveRing.classList.remove('show');
       } else if (pc.connectionState === 'failed') {
         toast('Connection failed. Try Next.', 'error');
@@ -720,11 +890,11 @@
     liveRing.classList.remove('show');
   }
 
+  // ============ Chat helpers ============
   function openChat() {
     state.chatOpen = true;
     chatDrawer.classList.add('open');
     btnChat.classList.add('active');
-    btnChat.title = 'Close chat';
     state.unreadCount = 0;
     updateChatBadge();
     chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -734,7 +904,6 @@
     state.chatOpen = false;
     chatDrawer.classList.remove('open');
     btnChat.classList.remove('active');
-    btnChat.title = 'Open chat';
     chatInput.blur();
   }
   function toggleChat() { state.chatOpen ? closeChat() : openChat(); }
@@ -799,23 +968,18 @@
     chatInput.focus();
   }
 
-  function showOverlay(kind, title, text) {
-    overlaySpinner.style.display = kind === 'waiting' ? 'block' : 'none';
-    overlayEmoji.style.display = kind === 'error' ? 'block' : 'none';
-    if (kind === 'error') overlayEmoji.textContent = '⚠️';
-    overlayTitle.textContent = title;
-    overlayText.textContent = text;
-    overlay.classList.add('show');
-  }
-  function hideOverlay() { overlay.classList.remove('show'); }
-
+  // ============ UI states ============
   function showSearchingUI() {
-    showOverlay('waiting', 'Looking for someone…', 'Please wait while we connect you to a stranger.');
-    setStatus('waiting', 'Searching for a stranger…');
+    searchingScreen.classList.add('show');
     liveRing.classList.add('show');
     remotePlaceholder.style.display = 'grid';
     remoteBadge.classList.remove('live');
     remoteBadgeText.textContent = 'Searching…';
+    setStatus('waiting', 'Searching for a stranger…');
+  }
+  function hideSearchingUI() {
+    searchingScreen.classList.remove('show');
+    liveRing.classList.remove('show');
   }
 
   function setStatus(kind, text) {
@@ -825,34 +989,30 @@
     statusText.textContent = text;
   }
 
-  let toastTimer;
-  function toast(msg, kind) {
-    toastEl.textContent = msg;
-    toastEl.className = 'show ' + (kind || '');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { toastEl.className = ''; }, 3200);
-  }
-
-  function updateButtons() {
-    const busy = state.inChat || state.inQueue;
-    btnStart.disabled = busy;
-    btnStart.style.display = busy ? 'none' : 'inline-flex';
-    btnNext.disabled = !busy;
-    btnStop.disabled = !busy;
-    btnReport.disabled = !state.inChat;
-    btnChat.disabled = !state.inChat;
-    if (!state.inChat && state.chatOpen) closeChat();
-  }
-
   function endChatUI(message) {
     cleanupPeer();
     clearChatOnEnd();
     state.inChat = false;
+    state.peerId = null;
+    // Auto-requeue so user is matched to someone new
+    if (state.socket.connected) {
+      socket.emit('join_queue', { name: state.myName });
+      showSearchingUI();
+    }
+    if (message) toast(message, 'error');
+  }
+
+  function resetToLanding(message) {
+    cleanupPeer();
+    clearChatOnEnd();
+    state.inChat = false;
     state.inQueue = false;
-    updateButtons();
-    setStatus('idle', message || 'Idle');
-    hideOverlay();
-    refreshStats();
+    state.peerId = null;
+    stageWrap.classList.add('hidden');
+    footer.style.display = 'none';
+    landingScreen.classList.remove('hidden');
+    searchingScreen.classList.remove('show');
+    if (message) toast(message, 'error');
   }
 
   function syncTrackButtons() {
@@ -870,28 +1030,15 @@
     localPlaceholder.style.display = camLive ? 'none' : 'grid';
   }
 
-  async function refreshStats() {
-    try {
-      const res = await fetch('/api/stats');
-      if (!res.ok) return;
-      const data = await res.json();
-      $('statOnline') && ($('statOnline').textContent = data.online ?? '—');
-      $('statWaiting') && ($('statWaiting').textContent = data.waiting ?? '—');
-    } catch (_) {}
+  let toastTimer;
+  function toast(msg, kind) {
+    toastEl.textContent = msg;
+    toastEl.className = 'show ' + (kind || '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastEl.className = ''; }, 3200);
   }
 
-  btnStart.addEventListener('click', async () => {
-    try { await ensureLocalMedia(); }
-    catch (e) {
-      toast(e.message, 'error');
-      showOverlay('error', 'Camera unavailable', e.message);
-      return;
-    }
-    socket.emit('join_queue');
-    showSearchingUI();
-    updateButtons();
-  });
-
+  // ============ Buttons ============
   btnNext.addEventListener('click', () => {
     if (!state.inChat && !state.inQueue) return;
     cleanupPeer();
@@ -900,22 +1047,11 @@
     state.peerId = null;
     socket.emit('next_stranger');
     showSearchingUI();
-    updateButtons();
   });
 
   btnStop.addEventListener('click', () => {
-    if (state.inChat || state.inQueue) socket.emit('leave_chat');
-    cleanupPeer();
-    clearChatOnEnd();
-    state.inChat = false;
-    state.inQueue = false;
-    hideOverlay();
-    liveRing.classList.remove('show');
-    remotePlaceholder.style.display = 'grid';
-    remoteBadgeText.textContent = 'No stranger';
-    setStatus('idle', 'Idle — press Start Chat');
-    updateButtons();
-    refreshStats();
+    socket.emit('leave_chat');
+    resetToLanding('You stopped the chat.');
   });
 
   btnMic.addEventListener('click', () => {
@@ -958,6 +1094,7 @@
     }, 2500);
   });
 
+  // Report
   const reportModal = $('reportModal');
   btnReport.addEventListener('click', () => { if (state.inChat) reportModal.classList.add('show'); });
   $('reportCancel').addEventListener('click', () => reportModal.classList.remove('show'));
@@ -971,9 +1108,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason, details, peerSocketId: state.peerId || undefined })
       });
-      if (res.status === 429) { toast('Too many reports. Slow down.', 'error'); return; }
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Report failed');
+      if (res.status === 429) { toast('Too many reports.', 'error'); return; }
       toast('Report submitted. Thank you.', 'success');
       reportModal.classList.remove('show');
       $('reportDetails').value = '';
@@ -991,11 +1126,8 @@
     if (state.localStream) state.localStream.getTracks().forEach(t => t.stop());
   });
 
-  setInterval(refreshStats, 15000);
-  updateButtons();
-  refreshStats();
   window.__strangerCam = { state, socket };
 })();
 </script>
 </body>
-</html>
+  </html>
