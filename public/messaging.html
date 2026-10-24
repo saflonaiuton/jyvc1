@@ -17,8 +17,6 @@
     --accent: #7c5cff;
     --accent-2: #00d4aa;
     --danger: #ff4d6d;
-    --warn: #ffb020;
-    --radius: 16px;
     --shadow: 0 10px 40px rgba(0,0,0,.5);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -31,57 +29,42 @@
     user-select: none;
   }
   .app { height: 100dvh; display: flex; flex-direction: column; }
-
   header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 12px 18px; border-bottom: 1px solid var(--border);
     background: rgba(15,15,19,.75); backdrop-filter: blur(10px);
     z-index: 20; flex-shrink: 0;
   }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: .3px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
   .logo {
     width: 30px; height: 30px; border-radius: 9px;
     background: linear-gradient(135deg, var(--accent), var(--accent-2));
     display: grid; place-items: center; font-size: 15px;
   }
-  .brand span { font-size: 16px; }
   .header-links { display: flex; gap: 8px; align-items: center; }
   .header-links a {
     font-size: 12px; color: var(--muted); text-decoration: none;
     padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border);
-    transition: background .15s, color .15s;
   }
   .header-links a:hover { background: var(--bg-elev); color: var(--text); }
   .header-links a.active { background: rgba(124,92,255,.15); color: #b9a8ff; border-color: var(--accent); }
 
-  /* Landing screen — name entry */
-  .landing {
-    flex: 1; display: grid; place-items: center; padding: 24px;
-    overflow-y: auto;
-  }
+  .landing { flex: 1; display: grid; place-items: center; padding: 24px; overflow-y: auto; }
+  .landing.hidden { display: none; }
   .landing-card {
     width: 100%; max-width: 440px;
-    background: var(--bg-soft);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 32px 28px;
-    box-shadow: var(--shadow);
-    animation: fadeUp .4s ease;
+    background: var(--bg-soft); border: 1px solid var(--border);
+    border-radius: 20px; padding: 32px 28px;
+    box-shadow: var(--shadow); animation: fadeUp .4s ease;
   }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-  .landing-emoji {
-    font-size: 52px; text-align: center; margin-bottom: 8px;
-    filter: drop-shadow(0 4px 20px rgba(124,92,255,.4));
-  }
+  .landing-emoji { font-size: 52px; text-align: center; margin-bottom: 8px; filter: drop-shadow(0 4px 20px rgba(124,92,255,.4)); }
   .landing h1 {
     font-size: 24px; text-align: center; margin-bottom: 8px;
     background: linear-gradient(135deg, #b9a8ff, var(--accent-2));
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
-  .landing p {
-    text-align: center; color: var(--muted); font-size: 13px;
-    margin-bottom: 26px; line-height: 1.6;
-  }
+  .landing p { text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 26px; line-height: 1.6; }
   .name-field { position: relative; margin-bottom: 20px; }
   .name-field label {
     display: block; font-size: 11px; text-transform: uppercase;
@@ -93,37 +76,34 @@
     border-radius: 14px; font-size: 15px; font-family: inherit;
     outline: none; transition: border-color .2s, box-shadow .2s;
   }
-  .name-field input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 4px rgba(124,92,255,.15);
-  }
-  .name-field .icon {
-    position: absolute; left: 16px; bottom: 16px;
-    font-size: 18px; pointer-events: none; color: var(--muted);
-  }
+  .name-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(124,92,255,.15); }
+  .name-field .icon { position: absolute; left: 16px; bottom: 16px; font-size: 18px; pointer-events: none; color: var(--muted); }
   .name-hint { font-size: 11px; color: var(--muted); margin-top: -12px; margin-bottom: 20px; text-align: center; }
   .name-hint.error { color: var(--danger); }
-
   .btn-start-big {
-    width: 100%;
-    background: linear-gradient(135deg, var(--accent), #5b3fd6);
-    border: none; color: white; padding: 16px;
-    border-radius: 14px; font-size: 15px; font-weight: 700;
-    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; background: linear-gradient(135deg, var(--accent), #5b3fd6);
+    border: none; color: white; padding: 16px; border-radius: 14px;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
     box-shadow: 0 8px 24px rgba(124,92,255,.4);
     transition: transform .1s, box-shadow .15s;
   }
   .btn-start-big:hover { box-shadow: 0 10px 30px rgba(124,92,255,.55); }
   .btn-start-big:active { transform: scale(.98); }
-  .btn-start-big:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
   .btn-start-big svg { width: 20px; height: 20px; }
 
-  /* Chat screen */
-  .chat-screen {
-    flex: 1; display: flex; flex-direction: column;
-    min-height: 0; overflow: hidden;
-  }
+  .chat-screen { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
   .chat-screen.hidden { display: none; }
+  .searching { flex: 1; display: grid; place-items: center; text-align: center; padding: 24px; }
+  .searching.hidden { display: none; }
+  .searching .spinner {
+    width: 64px; height: 64px; border-radius: 50%;
+    border: 3px solid rgba(124,92,255,.25); border-top-color: var(--accent);
+    animation: spin 1s linear infinite; margin: 0 auto 22px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .searching h2 { font-size: 18px; margin-bottom: 8px; }
+  .searching p { color: var(--muted); font-size: 13px; max-width: 280px; margin: 0 auto; }
 
   .chat-header {
     flex-shrink: 0; padding: 12px 18px;
@@ -135,20 +115,12 @@
     width: 40px; height: 40px; border-radius: 50%;
     background: linear-gradient(135deg, var(--accent), var(--accent-2));
     display: grid; place-items: center; font-size: 18px;
-    font-weight: 700; flex-shrink: 0;
+    font-weight: 700; flex-shrink: 0; color: white;
   }
   .chat-header .info { flex: 1; min-width: 0; }
-  .chat-header .info h2 {
-    font-size: 14px; margin-bottom: 2px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .chat-header .info .status {
-    font-size: 11px; color: var(--muted);
-    display: flex; align-items: center; gap: 6px;
-  }
-  .chat-header .info .status .dot {
-    width: 6px; height: 6px; border-radius: 50%; background: var(--muted);
-  }
+  .chat-header .info h2 { font-size: 14px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat-header .info .status { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .chat-header .info .status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
   .chat-header .info .status.connected .dot { background: var(--accent-2); box-shadow: 0 0 6px var(--accent-2); }
 
   .chat-messages {
@@ -158,18 +130,13 @@
   }
   .chat-messages::-webkit-scrollbar { width: 6px; }
   .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
   .sys-msg {
     align-self: center; text-align: center; max-width: 80%;
     background: rgba(124,92,255,.1); border: 1px solid rgba(124,92,255,.25);
     color: #b9a8ff; font-size: 12px; padding: 8px 14px;
     border-radius: 12px; line-height: 1.4;
   }
-
-  .bubble-row {
-    display: flex; gap: 8px; align-items: flex-end;
-    animation: bubbleIn .2s ease;
-  }
+  .bubble-row { display: flex; gap: 8px; align-items: flex-end; animation: bubbleIn .2s ease; }
   @keyframes bubbleIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   .bubble-row.mine { justify-content: flex-end; }
   .bubble-row .mini-avatar {
@@ -180,40 +147,24 @@
     flex-shrink: 0; color: var(--muted);
   }
   .bubble-row.mine .mini-avatar { display: none; }
-
-  .bubble {
-    max-width: 72%; padding: 10px 14px; border-radius: 16px;
-    font-size: 14px; line-height: 1.4; word-wrap: break-word;
-    overflow-wrap: anywhere;
-  }
-  .bubble-row.theirs .bubble {
-    background: var(--bg-elev); border: 1px solid var(--border);
-    border-bottom-left-radius: 4px;
-  }
-  .bubble-row.mine .bubble {
-    background: linear-gradient(135deg, var(--accent), #5b3fd6);
-    color: white; border-bottom-right-radius: 4px;
-  }
+  .bubble { max-width: 72%; padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word; overflow-wrap: anywhere; }
+  .bubble-row.theirs .bubble { background: var(--bg-elev); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .bubble-row.mine .bubble { background: linear-gradient(135deg, var(--accent), #5b3fd6); color: white; border-bottom-right-radius: 4px; }
   .bubble .time { display: block; font-size: 10px; opacity: .55; margin-top: 4px; }
 
-  .chat-typing-row {
-    padding: 0 24px 8px; font-size: 12px;
-    color: var(--accent-2); font-style: italic;
-    min-height: 20px; flex-shrink: 0;
-  }
+  .chat-typing-row { padding: 0 24px 8px; font-size: 12px; color: var(--accent-2); font-style: italic; min-height: 20px; flex-shrink: 0; }
 
   .chat-input-row {
     flex-shrink: 0; display: flex; gap: 10px;
-    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    padding: 12px 16px;
     border-top: 1px solid var(--border);
-    background: var(--bg-soft);
-    align-items: center;
+    background: var(--bg-soft); align-items: center;
   }
   .chat-input-row input {
     flex: 1; background: var(--bg); border: 2px solid var(--border);
-    color: var(--text); padding: 12px 16px;
-    border-radius: 14px; font-size: 15px; font-family: inherit;
-    outline: none; min-width: 0; transition: border-color .2s;
+    color: var(--text); padding: 12px 16px; border-radius: 14px;
+    font-size: 15px; font-family: inherit; outline: none; min-width: 0;
+    transition: border-color .2s;
   }
   .chat-input-row input:focus { border-color: var(--accent); }
   .chat-input-row input:disabled { opacity: .5; cursor: not-allowed; }
@@ -222,7 +173,6 @@
     border: none; color: white; padding: 12px 18px; border-radius: 14px;
     cursor: pointer; font-size: 16px; font-weight: 700; line-height: 1;
     flex-shrink: 0; transition: transform .1s, opacity .15s;
-    display: flex; align-items: center; gap: 6px;
   }
   .chat-input-row button:active { transform: scale(.96); }
   .chat-input-row button:disabled { opacity: .4; cursor: not-allowed; }
@@ -239,29 +189,10 @@
     display: flex; align-items: center; justify-content: center; gap: 8px;
     transition: transform .1s, background .15s;
   }
-  .chat-controls .btn:hover:not(:disabled) { background: #26263a; }
-  .chat-controls .btn:active:not(:disabled) { transform: scale(.97); }
-  .chat-controls .btn:disabled { opacity: .4; cursor: not-allowed; }
-  .chat-controls .btn.next {
-    background: linear-gradient(135deg, var(--accent), #5b3fd6);
-    border-color: transparent; color: white;
-  }
+  .chat-controls .btn:active { transform: scale(.97); }
+  .chat-controls .btn.next { background: linear-gradient(135deg, var(--accent), #5b3fd6); border-color: transparent; color: white; }
   .chat-controls .btn.stop { background: rgba(255,77,109,.12); border-color: rgba(255,77,109,.4); color: #ff8fa3; }
   .chat-controls .btn svg { width: 15px; height: 15px; }
-
-  /* Searching state */
-  .searching {
-    flex: 1; display: grid; place-items: center; text-align: center; padding: 24px;
-  }
-  .searching.hidden { display: none; }
-  .searching .spinner {
-    width: 64px; height: 64px; border-radius: 50%;
-    border: 3px solid rgba(124,92,255,.25); border-top-color: var(--accent);
-    animation: spin 1s linear infinite; margin: 0 auto 22px;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .searching h2 { font-size: 18px; margin-bottom: 8px; }
-  .searching p { color: var(--muted); font-size: 13px; max-width: 280px; margin: 0 auto; }
 
   .toast {
     position: fixed; top: 70px; left: 50%; transform: translateX(-50%) translateY(-20px);
@@ -294,27 +225,17 @@
     </div>
   </header>
 
-  <!-- Landing: enter name, click Start -->
   <div class="landing" id="landingScreen">
     <div class="landing-card">
       <div class="landing-emoji">💬</div>
       <h1>Meet a Stranger</h1>
       <p>Chat anonymously with a random person from around the world. No camera. Just words.</p>
-
       <div class="name-field">
         <label for="nameInput">Your display name</label>
         <span class="icon">👤</span>
-        <input
-          type="text"
-          id="nameInput"
-          placeholder="e.g. Alex, Sam, Jay…"
-          maxlength="24"
-          autocomplete="off"
-          autocapitalize="words"
-        />
+        <input type="text" id="nameInput" placeholder="e.g. Alex, Sam, Jay…" maxlength="24" autocomplete="off" />
       </div>
-      <div class="name-hint" id="nameHint">This is what strangers will see. You can change it any time.</div>
-
+      <div class="name-hint" id="nameHint">This is what strangers will see.</div>
       <button class="btn-start-big" id="btnStart">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         Start
@@ -322,16 +243,14 @@
     </div>
   </div>
 
-  <!-- Searching -->
   <div class="searching hidden" id="searchingScreen">
     <div>
       <div class="spinner"></div>
       <h2>Finding someone…</h2>
-      <p>Looking for a stranger to connect with. This may take a moment.</p>
+      <p>Looking for a stranger to connect with.</p>
     </div>
   </div>
 
-  <!-- Chat screen -->
   <div class="chat-screen hidden" id="chatScreen">
     <div class="chat-header">
       <div class="avatar" id="strangerAvatar">?</div>
@@ -340,15 +259,12 @@
         <div class="status" id="chatStatus"><span class="dot"></span><span id="chatStatusText">Setting up</span></div>
       </div>
     </div>
-
     <div class="chat-messages" id="chatMessages"></div>
     <div class="chat-typing-row" id="chatTyping"></div>
-
     <div class="chat-input-row">
       <input type="text" id="msgInput" placeholder="Type a message…" maxlength="500" autocomplete="off" disabled />
       <button id="btnSend" disabled title="Send">➤</button>
     </div>
-
     <div class="chat-controls">
       <button class="btn next" id="btnNext" disabled>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
@@ -367,7 +283,6 @@
 <script>
 (() => {
   'use strict';
-
   const $ = (id) => document.getElementById(id);
   const landingScreen = $('landingScreen');
   const searchingScreen = $('searchingScreen');
@@ -375,7 +290,6 @@
   const nameInput = $('nameInput');
   const nameHint = $('nameHint');
   const btnStart = $('btnStart');
-
   const chatMessages = $('chatMessages');
   const chatTyping = $('chatTyping');
   const msgInput = $('msgInput');
@@ -386,49 +300,36 @@
   const strangerName = $('strangerName');
   const chatStatus = $('chatStatus');
   const chatStatusText = $('chatStatusText');
-
   const toastEl = $('toast');
 
   const state = {
-    socket: null,
-    myName: '',
-    peerName: '',
-    peerId: null,
-    inQueue: false,
-    inChat: false,
-    typingTimer: null,
-    lastTypingSent: 0,
-    remoteTypingTimer: null
+    socket: null, myName: '', peerName: '', peerId: null,
+    inQueue: false, inChat: false,
+    typingTimer: null, lastTypingSent: 0, remoteTypingTimer: null
   };
 
   const socket = io({ transports: ['websocket', 'polling'], reconnection: true, query: { mode: 'text' } });
   state.socket = socket;
 
-  // ============ Name validation ============
   function validateName(raw) {
     const name = (raw || '').trim();
     if (name.length < 2) return { ok: false, error: 'Name must be at least 2 characters.' };
     if (name.length > 24) return { ok: false, error: 'Name must be 24 characters or less.' };
-    if (!/^[\p{L}\p{N} _.\-']+$/u.test(name)) {
-      return { ok: false, error: 'Only letters, numbers, spaces, dots, dashes allowed.' };
-    }
+    if (!/^[\p{L}\p{N} _.\-']+$/u.test(name)) return { ok: false, error: 'Only letters, numbers, spaces, dots, dashes allowed.' };
     return { ok: true, name };
   }
 
-  // Restore name from localStorage
   const savedName = localStorage.getItem('displayName');
   if (savedName) nameInput.value = savedName;
 
   nameInput.addEventListener('input', () => {
     nameHint.classList.remove('error');
-    nameHint.textContent = 'This is what strangers will see. You can change it any time.';
+    nameHint.textContent = 'This is what strangers will see.';
   });
-
   nameInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); btnStart.click(); }
   });
 
-  // ============ Start button ============
   btnStart.addEventListener('click', () => {
     const v = validateName(nameInput.value);
     if (!v.ok) {
@@ -440,7 +341,7 @@
     state.myName = v.name;
     localStorage.setItem('displayName', v.name);
 
-    landingScreen.style.display = 'none';
+    landingScreen.classList.add('hidden');
     searchingScreen.classList.remove('hidden');
     chatScreen.classList.add('hidden');
 
@@ -448,14 +349,11 @@
     state.inQueue = true;
   });
 
-  // ============ Socket events ============
   socket.on('connect', () => {
-    // If user was in the middle of a chat, come back to landing
     if (state.inChat || state.inQueue) {
       resetToLanding('Connection restored. Click Start to reconnect.');
     }
   });
-
   socket.on('disconnect', () => {
     if (state.inChat || state.inQueue) {
       resetToLanding('Connection lost. Click Start to reconnect.');
@@ -484,7 +382,6 @@
     chatStatus.classList.add('connected');
     chatStatusText.textContent = 'Connected';
 
-    // Reset conversation for the new peer
     chatMessages.innerHTML = '';
     addSystemMessage(`You're now chatting with ${state.peerName}. Say hi! 👋`);
     chatTyping.textContent = '';
@@ -519,11 +416,12 @@
   });
 
   socket.on('peer_left', () => {
+    if (!state.inChat) return;
     addSystemMessage(`${state.peerName} left the chat.`);
     handlePeerGone();
   });
-
   socket.on('chat_ended', () => {
+    if (!state.inChat) return;
     addSystemMessage('Chat ended.');
     handlePeerGone();
   });
@@ -543,8 +441,7 @@
     chatStatus.classList.remove('connected');
     chatStatusText.textContent = 'Disconnected';
     setTimeout(() => {
-      if (!state.inChat) {
-        // Go back to searching automatically
+      if (!state.inChat && state.myName) {
         socket.emit('join_queue', { name: state.myName });
         state.inQueue = true;
         searchingScreen.classList.remove('hidden');
@@ -553,7 +450,6 @@
     }, 1200);
   }
 
-  // ============ Send message ============
   function sendMessage() {
     if (!state.inChat || !state.peerId) return;
     const text = msgInput.value.trim();
@@ -586,7 +482,6 @@
     }, 2500);
   });
 
-  // ============ Next / Stop ============
   btnNext.addEventListener('click', () => {
     if (!state.inChat && !state.inQueue) return;
     socket.emit('next_stranger');
@@ -608,7 +503,6 @@
     resetToLanding('You left the chat.');
   });
 
-  // ============ UI helpers ============
   function resetToLanding(message) {
     state.inChat = false;
     state.inQueue = false;
@@ -621,21 +515,19 @@
     btnStop.disabled = true;
     searchingScreen.classList.add('hidden');
     chatScreen.classList.add('hidden');
-    landingScreen.style.display = 'grid';
+    landingScreen.classList.remove('hidden');
     if (message) toast(message, 'error');
   }
 
   function addBubble(text, kind, ts) {
     const row = document.createElement('div');
     row.className = 'bubble-row ' + kind;
-
     if (kind === 'theirs') {
       const av = document.createElement('div');
       av.className = 'mini-avatar';
       av.textContent = (state.peerName[0] || '?').toUpperCase();
       row.appendChild(av);
     }
-
     const bub = document.createElement('div');
     bub.className = 'bubble';
     bub.textContent = text;
@@ -644,7 +536,6 @@
     time.textContent = new Date(ts || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     bub.appendChild(time);
     row.appendChild(bub);
-
     chatMessages.appendChild(row);
     chatMessages.scrollTop = chatMessages.scrollHeight;
   }
@@ -667,4 +558,4 @@
 })();
 </script>
 </body>
-  </html>
+</html>
