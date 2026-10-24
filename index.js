@@ -25,7 +25,7 @@ const io = new Server(server, {
     origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true,
     methods: ['GET', 'POST']
   },
-  maxHttpBufferSize: 50 * 1024 * 1024,   // 50MB for video uploads
+  maxHttpBufferSize: 50 * 1024 * 1024,
   pingTimeout: 25000,
   pingInterval: 20000
 });
@@ -33,12 +33,10 @@ const io = new Server(server, {
 app.use(express.json({ limit: '16kb' }));
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: NODE_ENV === 'production' ? '1h' : 0 }));
 
-// Make sure the uploads dir exists
 const UPLOAD_DIR = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '1h' }));
 
-// Multer for video uploads
 const upload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => cb(null, UPLOAD_DIR),
@@ -54,7 +52,6 @@ const upload = multer({
   }
 });
 
-// ---------- Rate limiters ----------
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000, max: 120,
   standardHeaders: true, legacyHeaders: false
@@ -70,33 +67,47 @@ const adminLimiter = rateLimit({
 });
 app.use('/api/', apiLimiter);
 
-// ---------- In-memory state ----------
-const waitingQueue = new Set();
-const activeMatches = new Map();
+// ---------- Dual-pool state ----------
+// Video mode: existing behavior (WebRTC)
+// Text mode: text-only, users provide a name
+const pools = {
+  video: { queue: new Set(), matches: new Map() },
+  text:  { queue: new Set(), matches: new Map() }
+};
+
 const sessions = new Map();
 const recentReports = [];
 const MAX_REPORTS = 1000;
 
-// Admin state
-let adminSocketId = null;        // currently armed admin socket
+// Admin
+let adminSocketId = null;
 let adminVideoUrl = null;
 let adminDurationSeconds = 0;
 let adminReplies = [];
 let adminAutoNextTimer = null;
 
-// ---------- Helpers ----------
 function sanitizeString(s, max = 500) {
   if (typeof s !== 'string') return '';
   return s.replace(/[\u0000-\u001F\u007F]/g, '').slice(0, max).trim();
 }
-function isMatched(id) { return activeMatches.has(id); }
-function getPeer(id) { return activeMatches.get(id) || null; }
+
+function getMode(socket) {
+  const q = socket.handshake.query.mode;
+  return q === 'text' ? 'text' : 'video';
+}
+
+function getPool(socket) {
+  return pools[getMode(socket)];
+}
 
 function clearMatch(socketId, notifyPeer = true) {
-  const peerId = activeMatches.get(socketId);
+  const s = sessions.get(socketId);
+  if (!s) return null;
+  const pool = pools[s.mode];
+  const peerId = pool.matches.get(socketId);
   if (!peerId) return null;
-  activeMatches.delete(socketId);
-  activeMatches.delete(peerId);
+  pool.matches.delete(socketId);
+  pool.matches.delete(peerId);
   if (notifyPeer) {
     const peerSocket = io.sockets.sockets.get(peerId);
     if (peerSocket) peerSocket.emit('peer_left');
@@ -107,14 +118,18 @@ function clearMatch(socketId, notifyPeer = true) {
 function broadcastStats() {
   io.emit('stats_update', {
     online: io.engine.clientsCount,
-    waiting: waitingQueue.size,
-    inChat: activeMatches.size / 2
+    waiting: pools.video.queue.size + pools.text.queue.size,
+    inChat: (pools.video.matches.size + pools.text.matches.size) / 2,
+    videoWaiting: pools.video.queue.size,
+    textWaiting: pools.text.queue.size
   });
 }
 
-function tryMatch() {
-  if (waitingQueue.size < 2) return;
-  const ids = Array.from(waitingQueue);
+function tryMatchInPool(mode) {
+  const pool = pools[mode];
+  if (pool.queue.size < 2) return;
+  const ids = Array.from(pool.queue);
+
   while (ids.length >= 2) {
     const a = ids.shift();
     const b = ids.shift();
@@ -122,25 +137,40 @@ function tryMatch() {
     const socketA = io.sockets.sockets.get(a);
     const socketB = io.sockets.sockets.get(b);
     if (!socketA || !socketB) {
-      waitingQueue.delete(a); waitingQueue.delete(b);
+      pool.queue.delete(a); pool.queue.delete(b);
       continue;
     }
-    if (isMatched(a) || isMatched(b)) continue;
+    if (pool.matches.has(a) || pool.matches.has(b)) continue;
 
-    waitingQueue.delete(a);
-    waitingQueue.delete(b);
-    activeMatches.set(a, b);
-    activeMatches.set(b, a);
+    pool.queue.delete(a);
+    pool.queue.delete(b);
+    pool.matches.set(a, b);
+    pool.matches.set(b, a);
 
-    // Deterministic initiator
     const initiator = a < b ? a : b;
     const other = initiator === a ? b : a;
 
-    io.sockets.sockets.get(initiator).emit('match_found', { peerId: other, initiator: true });
-    io.sockets.sockets.get(other).emit('match_found', { peerId: initiator, initiator: false });
+    const socketA2 = io.sockets.sockets.get(initiator);
+    const socketB2 = io.sockets.sockets.get(other);
 
-    // If one of them is the armed admin fake-peer, schedule auto-Next
-    if (adminVideoUrl && (initiator === adminSocketId || other === adminSocketId)) {
+    // Include names for text mode
+    const nameOf = (sid) => sessions.get(sid)?.name || 'Stranger';
+    const payloadA = {
+      peerId: other,
+      initiator: true,
+      peerName: nameOf(other)
+    };
+    const payloadB = {
+      peerId: initiator,
+      initiator: false,
+      peerName: nameOf(initiator)
+    };
+
+    socketA2.emit('match_found', payloadA);
+    socketB2.emit('match_found', payloadB);
+
+    // Admin auto-next for video mode
+    if (mode === 'video' && adminVideoUrl && (initiator === adminSocketId || other === adminSocketId)) {
       scheduleAutoNext(initiator === adminSocketId ? other : initiator);
     }
 
@@ -151,17 +181,14 @@ function tryMatch() {
 function scheduleAutoNext(realUserSocketId) {
   if (adminAutoNextTimer) clearTimeout(adminAutoNextTimer);
   adminAutoNextTimer = setTimeout(() => {
-    // End the match from admin's side, pushing the real user back to queue
-    if (adminSocketId && activeMatches.get(adminSocketId)) {
-      const peer = activeMatches.get(adminSocketId);
+    if (adminSocketId && pools.video.matches.get(adminSocketId)) {
+      const peer = pools.video.matches.get(adminSocketId);
       clearMatch(adminSocketId, false);
-      // Re-queue admin (so they can match with the next real user)
-      if (!waitingQueue.has(adminSocketId)) waitingQueue.add(adminSocketId);
-      // Notify the real user that stranger left — their client auto-requeues
+      if (!pools.video.queue.has(adminSocketId)) pools.video.queue.add(adminSocketId);
       const peerSocket = io.sockets.sockets.get(peer);
       if (peerSocket) peerSocket.emit('peer_left');
       broadcastStats();
-      tryMatch();
+      tryMatchInPool('video');
     }
     adminAutoNextTimer = null;
   }, adminDurationSeconds * 1000);
@@ -174,7 +201,6 @@ function cancelAutoNext() {
   }
 }
 
-// Per-socket signaling rate limiting
 const SIGNAL_WINDOW_MS = 1000;
 const SIGNAL_MAX_PER_WINDOW = 60;
 const CHAT_WINDOW_MS = 3000;
@@ -203,8 +229,11 @@ io.use((socket, next) => {
   socket.data.signalTimestamps = [];
   socket.data.chatTimestamps = [];
   socket.data.isAdmin = false;
+  socket.data.mode = getMode(socket);
   sessions.set(socket.id, {
     joinedAt: Date.now(),
+    mode: socket.data.mode,
+    name: null,
     ua: sanitizeString(socket.handshake.headers['user-agent'] || '', 300),
     ip: socket.handshake.address
   });
@@ -213,8 +242,10 @@ io.use((socket, next) => {
 
 io.on('connection', (socket) => {
   broadcastStats();
+  const mode = socket.data.mode;
+  const pool = pools[mode];
 
-  // -------- Admin registration --------
+  // Admin registration (video only)
   socket.on('admin_register', ({ key }) => {
     if (sanitizeString(key, 200) !== ADMIN_KEY) {
       socket.emit('admin_error', { message: 'Invalid admin key.' });
@@ -225,7 +256,6 @@ io.on('connection', (socket) => {
     socket.emit('admin_registered');
   });
 
-  // -------- Admin arming --------
   socket.on('admin_arm', ({ videoUrl, durationSeconds, replies }) => {
     if (!socket.data.isAdmin) return;
     if (typeof videoUrl !== 'string' || !videoUrl.startsWith('/uploads/')) return;
@@ -240,18 +270,16 @@ io.on('connection', (socket) => {
       ? replies.map(r => sanitizeString(r, CHAT_MAX_LENGTH)).filter(Boolean).slice(0, 50)
       : [];
 
-    // Auto-join queue as fake peer
-    if (!isMatched(socket.id) && !waitingQueue.has(socket.id)) {
-      waitingQueue.add(socket.id);
-      tryMatch();
+    if (!pools.video.matches.has(socket.id) && !pools.video.queue.has(socket.id)) {
+      pools.video.queue.add(socket.id);
+      tryMatchInPool('video');
     }
   });
 
-  // -------- Admin disarming --------
   socket.on('admin_disarm', () => {
     if (!socket.data.isAdmin) return;
     cancelAutoNext();
-    waitingQueue.delete(socket.id);
+    pools.video.queue.delete(socket.id);
     clearMatch(socket.id, true);
     adminVideoUrl = null;
     adminDurationSeconds = 0;
@@ -259,20 +287,31 @@ io.on('connection', (socket) => {
     broadcastStats();
   });
 
-  // -------- User join queue --------
-  socket.on('join_queue', () => {
-    if (isMatched(socket.id)) {
+  // ---------- Join queue ----------
+  socket.on('join_queue', (payload) => {
+    // For text mode, capture name
+    if (mode === 'text') {
+      const name = sanitizeString(payload && payload.name, 24);
+      if (name.length < 2) {
+        socket.emit('error_message', { message: 'Invalid name.' });
+        return;
+      }
+      const s = sessions.get(socket.id);
+      if (s) s.name = name;
+    }
+
+    if (pool.matches.has(socket.id)) {
       socket.emit('error_message', { message: 'You are already in a chat.' });
       return;
     }
-    if (waitingQueue.has(socket.id)) {
-      socket.emit('queue_joined', { position: waitingQueue.size });
+    if (pool.queue.has(socket.id)) {
+      socket.emit('queue_joined', { position: pool.queue.size });
       return;
     }
-    waitingQueue.add(socket.id);
-    socket.emit('queue_joined', { position: waitingQueue.size });
+    pool.queue.add(socket.id);
+    socket.emit('queue_joined', { position: pool.queue.size });
     broadcastStats();
-    tryMatch();
+    tryMatchInPool(mode);
   });
 
   socket.on('next_stranger', () => {
@@ -282,17 +321,17 @@ io.on('connection', (socket) => {
       const peerSocket = io.sockets.sockets.get(peerId);
       if (peerSocket) peerSocket.emit('chat_ended');
     }
-    waitingQueue.delete(socket.id);
-    if (!waitingQueue.has(socket.id)) waitingQueue.add(socket.id);
-    socket.emit('queue_joined', { position: waitingQueue.size });
+    pool.queue.delete(socket.id);
+    if (!pool.queue.has(socket.id)) pool.queue.add(socket.id);
+    socket.emit('queue_joined', { position: pool.queue.size });
     broadcastStats();
-    tryMatch();
+    tryMatchInPool(mode);
   });
 
   socket.on('leave_chat', () => {
     cancelAutoNext();
     const peerId = clearMatch(socket.id, true);
-    waitingQueue.delete(socket.id);
+    pool.queue.delete(socket.id);
     if (peerId) {
       const peerSocket = io.sockets.sockets.get(peerId);
       if (peerSocket) peerSocket.emit('chat_ended');
@@ -301,13 +340,13 @@ io.on('connection', (socket) => {
     broadcastStats();
   });
 
-  // -------- WebRTC signaling --------
+  // ---------- WebRTC ----------
   socket.on('webrtc_offer', (payload) => {
     if (!rateLimitSignal(socket)) return;
     const to = payload && payload.to;
     const sdp = payload && payload.sdp;
     if (typeof to !== 'string' || !sdp || typeof sdp !== 'object') return;
-    if (getPeer(socket.id) !== to) {
+    if (pool.matches.get(socket.id) !== to) {
       socket.emit('error_message', { message: 'Not matched with that peer.' });
       return;
     }
@@ -320,7 +359,7 @@ io.on('connection', (socket) => {
     const to = payload && payload.to;
     const sdp = payload && payload.sdp;
     if (typeof to !== 'string' || !sdp || typeof sdp !== 'object') return;
-    if (getPeer(socket.id) !== to) return;
+    if (pool.matches.get(socket.id) !== to) return;
     const target = io.sockets.sockets.get(to);
     if (target) target.emit('webrtc_answer', { from: socket.id, sdp });
   });
@@ -330,12 +369,12 @@ io.on('connection', (socket) => {
     const to = payload && payload.to;
     const candidate = payload && payload.candidate;
     if (typeof to !== 'string' || !candidate) return;
-    if (getPeer(socket.id) !== to) return;
+    if (pool.matches.get(socket.id) !== to) return;
     const target = io.sockets.sockets.get(to);
     if (target) target.emit('webrtc_ice_candidate', { from: socket.id, candidate });
   });
 
-  // -------- Chat --------
+  // ---------- Chat ----------
   socket.on('chat_message', (payload) => {
     if (!rateLimitChat(socket)) {
       socket.emit('error_message', { message: 'Sending too fast.' });
@@ -345,12 +384,11 @@ io.on('connection', (socket) => {
     const text = sanitizeString(payload && payload.text, CHAT_MAX_LENGTH);
     if (!text) return;
 
-    // Admin fake-peer can send without a `to` — route to whoever they're matched with
     let targetId = to;
     if (socket.data.isAdmin && !targetId) {
-      targetId = getPeer(socket.id);
+      targetId = pool.matches.get(socket.id);
     }
-    if (!targetId || getPeer(socket.id) !== targetId) {
+    if (!targetId || pool.matches.get(socket.id) !== targetId) {
       socket.emit('error_message', { message: 'Not matched with that peer.' });
       return;
     }
@@ -361,20 +399,20 @@ io.on('connection', (socket) => {
   socket.on('typing', (payload) => {
     if (!rateLimitSignal(socket)) return;
     const to = payload && payload.to;
-    if (typeof to !== 'string' || getPeer(socket.id) !== to) return;
+    if (typeof to !== 'string' || pool.matches.get(socket.id) !== to) return;
     const target = io.sockets.sockets.get(to);
     if (target) target.emit('typing', { from: socket.id });
   });
 
   socket.on('stop_typing', (payload) => {
     const to = payload && payload.to;
-    if (typeof to !== 'string' || getPeer(socket.id) !== to) return;
+    if (typeof to !== 'string' || pool.matches.get(socket.id) !== to) return;
     const target = io.sockets.sockets.get(to);
     if (target) target.emit('stop_typing', { from: socket.id });
   });
 
   socket.on('block_peer', () => {
-    const peerId = getPeer(socket.id);
+    const peerId = pool.matches.get(socket.id);
     if (!peerId) return;
     clearMatch(socket.id, false);
     const peerSocket = io.sockets.sockets.get(peerId);
@@ -385,7 +423,7 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     cancelAutoNext();
-    waitingQueue.delete(socket.id);
+    pool.queue.delete(socket.id);
     const peerId = clearMatch(socket.id, true);
     if (peerId) {
       const peerSocket = io.sockets.sockets.get(peerId);
@@ -410,20 +448,20 @@ app.get('/api/health', (req, res) => {
 app.get('/api/stats', (req, res) => {
   res.json({
     online: io.engine.clientsCount,
-    waiting: waitingQueue.size,
-    inChat: activeMatches.size / 2,
+    waiting: pools.video.queue.size + pools.text.queue.size,
+    inChat: (pools.video.matches.size + pools.text.matches.size) / 2,
+    videoWaiting: pools.video.queue.size,
+    textWaiting: pools.text.queue.size,
     uptimeSeconds: Math.floor(process.uptime())
   });
 });
 
-// Admin key verification
 app.post('/api/admin/verify', adminLimiter, (req, res) => {
   const key = sanitizeString(req.body && req.body.key, 200);
   if (key !== ADMIN_KEY) return res.status(401).json({ error: 'Invalid key.' });
   res.json({ ok: true });
 });
 
-// Admin video upload
 app.post('/api/admin/upload-video', adminLimiter, (req, res, next) => {
   const key = req.headers['x-admin-key'];
   if (sanitizeString(key, 200) !== ADMIN_KEY) {
@@ -437,7 +475,6 @@ app.post('/api/admin/upload-video', adminLimiter, (req, res, next) => {
   });
 });
 
-// Report endpoint
 app.post('/api/report', reportLimiter, (req, res) => {
   const body = req.body || {};
   const reason = sanitizeString(body.reason, 40);
@@ -455,7 +492,6 @@ app.post('/api/report', reportLimiter, (req, res) => {
   };
   recentReports.push(report);
   if (recentReports.length > MAX_REPORTS) recentReports.shift();
-
   if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     persistReportToSupabase(report).catch(e => console.error('[report]', e.message));
   }
@@ -497,7 +533,6 @@ app.get('/api/ice', (req, res) => {
   res.json({ iceServers: ice });
 });
 
-// SPA fallback + admin page routing
 app.get('/adminsecretjay.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'adminsecretjay.html'));
 });
@@ -512,14 +547,16 @@ app.use((err, req, res, _next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Cleanup
 setInterval(() => {
-  for (const id of waitingQueue) {
-    if (!io.sockets.sockets.get(id)) waitingQueue.delete(id);
-  }
-  for (const [a, b] of activeMatches) {
-    if (!io.sockets.sockets.get(a) || !io.sockets.sockets.get(b)) {
-      activeMatches.delete(a); activeMatches.delete(b);
+  for (const mode of ['video', 'text']) {
+    const pool = pools[mode];
+    for (const id of pool.queue) {
+      if (!io.sockets.sockets.get(id)) pool.queue.delete(id);
+    }
+    for (const [a, b] of pool.matches) {
+      if (!io.sockets.sockets.get(a) || !io.sockets.sockets.get(b)) {
+        pool.matches.delete(a); pool.matches.delete(b);
+      }
     }
   }
 }, 30 * 1000).unref();
@@ -527,8 +564,9 @@ setInterval(broadcastStats, 15 * 1000).unref();
 
 server.listen(PORT, () => {
   console.log(`\n🎥 Stranger Cam running at http://localhost:${PORT}`);
-  console.log(`   Admin panel: http://localhost:${PORT}/adminsecretjay.html`);
-  console.log(`   Admin key:   ${ADMIN_KEY === 'change-me-secret-key' ? '⚠️  USING DEFAULT — set ADMIN_KEY in .env!' : '(configured)'}\n`);
+  console.log(`   💬 Text chat:   http://localhost:${PORT}/messaging.html`);
+  console.log(`   🔐 Admin panel: http://localhost:${PORT}/adminsecretjay.html`);
+  console.log(`   Admin key: ${ADMIN_KEY === 'change-me-secret-key' ? '⚠️  USING DEFAULT — set ADMIN_KEY in .env!' : '(configured)'}\n`);
 });
 
 function shutdown(signal) {
