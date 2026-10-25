@@ -12,6 +12,7 @@ const { Server } = require('socket.io');
 
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
+// Automatically trust Render's proxy in production to avoid express-rate-limit errors
 const TRUST_PROXY = process.env.TRUST_PROXY === '1' || NODE_ENV === 'production';
 const ADMIN_KEY = process.env.ADMIN_KEY || 'change-me-secret-key';
 
@@ -102,16 +103,12 @@ function getRealOnlineCount() {
 }
 
 function broadcastStats() {
-  const online = getRealOnlineCount(); // Accurate count without the admin bot
-  
-  // Broadcast to everyone
+  const online = getRealOnlineCount();
   io.emit('stats_update', {
     online: online,
     waiting: pools.video.queue.size + pools.text.queue.size,
     inChat: (pools.video.matches.size + pools.text.matches.size) / 2
   });
-
-  // Broadcast live count specifically for the header
   io.emit('online_count', online);
 }
 
@@ -450,6 +447,20 @@ app.post('/api/admin/verify', adminLimiter, (req, res) => {
   const key = sanitizeString(req.body && req.body.key, 200);
   if (key !== ADMIN_KEY) return res.status(401).json({ error: 'Invalid key.' });
   res.json({ ok: true });
+});
+
+// --- NEW ENDPOINT to list uploaded videos ---
+app.get('/api/admin/videos', adminLimiter, (req, res) => {
+  const key = req.headers['x-admin-key'];
+  if (sanitizeString(key, 200) !== ADMIN_KEY) {
+    return res.status(401).json({ error: 'Unauthorized.' });
+  }
+  try {
+    const files = fs.readdirSync(UPLOAD_DIR).filter(f => f.endsWith('.mp4') || f.endsWith('.webm'));
+    res.json(files);
+  } catch (e) {
+    res.json([]);
+  }
 });
 
 app.post('/api/admin/upload-video', adminLimiter, (req, res, next) => {
