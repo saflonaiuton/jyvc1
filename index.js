@@ -12,7 +12,6 @@ const { Server } = require('socket.io');
 
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
-// FIX: Automatically trust Render's proxy in production to avoid express-rate-limit errors
 const TRUST_PROXY = process.env.TRUST_PROXY === '1' || NODE_ENV === 'production';
 const ADMIN_KEY = process.env.ADMIN_KEY || 'change-me-secret-key';
 
@@ -68,7 +67,6 @@ const adminLimiter = rateLimit({
 });
 app.use('/api/', apiLimiter);
 
-// ---------- Dual-pool state ----------
 const pools = {
   video: { queue: new Set(), matches: new Map() },
   text:  { queue: new Set(), matches: new Map() }
@@ -94,33 +92,27 @@ function getMode(socket) {
   return q === 'text' ? 'text' : 'video';
 }
 
-function getPool(socket) {
-  return pools[getMode(socket)];
-}
-
-function clearMatch(socketId, notifyPeer = true) {
-  const s = sessions.get(socketId);
-  if (!s) return null;
-  const pool = pools[s.mode];
-  const peerId = pool.matches.get(socketId);
-  if (!peerId) return null;
-  pool.matches.delete(socketId);
-  pool.matches.delete(peerId);
-  if (notifyPeer) {
-    const peerSocket = io.sockets.sockets.get(peerId);
-    if (peerSocket) peerSocket.emit('peer_left');
+// Calculate total real users online (excluding the admin bot)
+function getRealOnlineCount() {
+  let count = 0;
+  for (const socket of io.sockets.sockets.values()) {
+    if (!socket.data.isAdmin) count++;
   }
-  return peerId;
+  return count;
 }
 
 function broadcastStats() {
+  const online = getRealOnlineCount(); // Accurate count without the admin bot
+  
+  // Broadcast to everyone
   io.emit('stats_update', {
-    online: io.engine.clientsCount,
+    online: online,
     waiting: pools.video.queue.size + pools.text.queue.size,
-    inChat: (pools.video.matches.size + pools.text.matches.size) / 2,
-    videoWaiting: pools.video.queue.size,
-    textWaiting: pools.text.queue.size
+    inChat: (pools.video.matches.size + pools.text.matches.size) / 2
   });
+
+  // Broadcast live count specifically for the header
+  io.emit('online_count', online);
 }
 
 function tryMatchInPool(mode) {
@@ -171,10 +163,15 @@ function scheduleAutoNext(realUserSocketId) {
   adminAutoNextTimer = setTimeout(() => {
     if (adminSocketId && pools.video.matches.get(adminSocketId)) {
       const peer = pools.video.matches.get(adminSocketId);
-      clearMatch(adminSocketId, false);
-      if (!pools.video.queue.has(adminSocketId)) pools.video.queue.add(adminSocketId);
+      const pool = pools.video;
+      pool.matches.delete(adminSocketId);
+      pool.matches.delete(peer);
+      
+      if (!pool.queue.has(adminSocketId)) pool.queue.add(adminSocketId);
+      
       const peerSocket = io.sockets.sockets.get(peer);
       if (peerSocket) peerSocket.emit('peer_left');
+      
       broadcastStats();
       tryMatchInPool('video');
     }
@@ -240,6 +237,7 @@ io.on('connection', (socket) => {
     socket.data.isAdmin = true;
     adminSocketId = socket.id;
     socket.emit('admin_registered');
+    broadcastStats();
   });
 
   socket.on('admin_arm', ({ videoUrl, durationSeconds, replies }) => {
@@ -266,7 +264,13 @@ io.on('connection', (socket) => {
     if (!socket.data.isAdmin) return;
     cancelAutoNext();
     pools.video.queue.delete(socket.id);
-    clearMatch(socket.id, true);
+    const peerId = pools.video.matches.get(socket.id);
+    if (peerId) {
+      pools.video.matches.delete(socket.id);
+      pools.video.matches.delete(peerId);
+      const peerSocket = io.sockets.sockets.get(peerId);
+      if (peerSocket) peerSocket.emit('peer_left');
+    }
     adminVideoUrl = null;
     adminDurationSeconds = 0;
     adminReplies = [];
@@ -300,10 +304,15 @@ io.on('connection', (socket) => {
 
   socket.on('next_stranger', () => {
     cancelAutoNext();
-    const peerId = clearMatch(socket.id, true);
+    const peerId = pool.matches.get(socket.id);
     if (peerId) {
+      pool.matches.delete(socket.id);
+      pool.matches.delete(peerId);
       const peerSocket = io.sockets.sockets.get(peerId);
-      if (peerSocket) peerSocket.emit('chat_ended');
+      if (peerSocket) {
+        peerSocket.emit('peer_left');
+        peerSocket.emit('chat_ended');
+      }
     }
     pool.queue.delete(socket.id);
     if (!pool.queue.has(socket.id)) pool.queue.add(socket.id);
@@ -314,12 +323,14 @@ io.on('connection', (socket) => {
 
   socket.on('leave_chat', () => {
     cancelAutoNext();
-    const peerId = clearMatch(socket.id, true);
-    pool.queue.delete(socket.id);
+    const peerId = pool.matches.get(socket.id);
     if (peerId) {
+      pool.matches.delete(socket.id);
+      pool.matches.delete(peerId);
       const peerSocket = io.sockets.sockets.get(peerId);
       if (peerSocket) peerSocket.emit('chat_ended');
     }
+    pool.queue.delete(socket.id);
     socket.emit('queue_left');
     broadcastStats();
   });
@@ -329,10 +340,7 @@ io.on('connection', (socket) => {
     const to = payload && payload.to;
     const sdp = payload && payload.sdp;
     if (typeof to !== 'string' || !sdp || typeof sdp !== 'object') return;
-    if (pool.matches.get(socket.id) !== to) {
-      socket.emit('error_message', { message: 'Not matched with that peer.' });
-      return;
-    }
+    if (pool.matches.get(socket.id) !== to) return;
     const target = io.sockets.sockets.get(to);
     if (target) target.emit('webrtc_offer', { from: socket.id, sdp });
   });
@@ -396,7 +404,8 @@ io.on('connection', (socket) => {
   socket.on('block_peer', () => {
     const peerId = pool.matches.get(socket.id);
     if (!peerId) return;
-    clearMatch(socket.id, false);
+    pool.matches.delete(socket.id);
+    pool.matches.delete(peerId);
     const peerSocket = io.sockets.sockets.get(peerId);
     if (peerSocket) peerSocket.emit('chat_ended');
     socket.emit('blocked');
@@ -406,8 +415,10 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     cancelAutoNext();
     pool.queue.delete(socket.id);
-    const peerId = clearMatch(socket.id, true);
+    const peerId = pool.matches.get(socket.id);
     if (peerId) {
+      pool.matches.delete(socket.id);
+      pool.matches.delete(peerId);
       const peerSocket = io.sockets.sockets.get(peerId);
       if (peerSocket) peerSocket.emit('peer_left');
     }
@@ -428,11 +439,9 @@ app.get('/api/health', (req, res) => {
 
 app.get('/api/stats', (req, res) => {
   res.json({
-    online: io.engine.clientsCount,
+    online: getRealOnlineCount(),
     waiting: pools.video.queue.size + pools.text.queue.size,
     inChat: (pools.video.matches.size + pools.text.matches.size) / 2,
-    videoWaiting: pools.video.queue.size,
-    textWaiting: pools.text.queue.size,
     uptimeSeconds: Math.floor(process.uptime())
   });
 });
@@ -466,10 +475,7 @@ app.post('/api/report', reportLimiter, (req, res) => {
 
   const report = {
     id: `r_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    reason, details,
-    reporterIp: req.ip,
-    peerSocketId: peerSocketId || null,
-    createdAt: new Date().toISOString()
+    reason, details, reporterIp: req.ip, peerSocketId: peerSocketId || null, createdAt: new Date().toISOString()
   };
   recentReports.push(report);
   if (recentReports.length > MAX_REPORTS) recentReports.shift();
@@ -485,30 +491,21 @@ async function persistReportToSupabase(report) {
   const resp = await fetch(url, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'apikey': key,
-      'Authorization': `Bearer ${key}`,
-      'Prefer': 'return=minimal'
+      'Content-Type': 'application/json', 'apikey': key, 'Authorization': `Bearer ${key}`, 'Prefer': 'return=minimal'
     },
     body: JSON.stringify({
-      reason: report.reason, details: report.details,
-      reporter_ip: report.reporterIp, peer_socket_id: report.peerSocketId,
-      created_at: report.createdAt
+      reason: report.reason, details: report.details, reporter_ip: report.reporterIp, peer_socket_id: report.peerSocketId, created_at: report.createdAt
     })
   });
   if (!resp.ok) throw new Error('Supabase ' + resp.status);
 }
 
 app.get('/api/ice', (req, res) => {
-  const ice = [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
-  ];
+  const ice = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
   if (process.env.TURN_URL && process.env.TURN_USERNAME && process.env.TURN_CREDENTIAL) {
     ice.push({
       urls: process.env.TURN_URL.split(',').map(s => s.trim()).filter(Boolean),
-      username: process.env.TURN_USERNAME,
-      credential: process.env.TURN_CREDENTIAL
+      username: process.env.TURN_USERNAME, credential: process.env.TURN_CREDENTIAL
     });
   }
   res.json({ iceServers: ice });
@@ -547,7 +544,6 @@ server.listen(PORT, () => {
   console.log(`\n🎥 Stranger Cam running at http://localhost:${PORT}`);
   console.log(`   💬 Text chat:   http://localhost:${PORT}/messaging.html`);
   console.log(`   🔐 Admin panel: http://localhost:${PORT}/adminsecretjay.html`);
-  console.log(`   Admin key: ${ADMIN_KEY === 'change-me-secret-key' ? '⚠️  USING DEFAULT — set ADMIN_KEY in .env!' : '(configured)'}\n`);
 });
 
 function shutdown(signal) {
