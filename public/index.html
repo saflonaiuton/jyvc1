@@ -31,6 +31,7 @@
   }
   .app { height: 100dvh; display: flex; flex-direction: column; }
 
+  /* Header */
   header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 12px 18px; border-bottom: 1px solid var(--border);
@@ -53,6 +54,21 @@
   .header-links a:hover { background: var(--bg-elev); color: var(--text); }
   .header-links a.active { background: rgba(124,92,255,.15); color: #b9a8ff; border-color: var(--accent); }
 
+  /* Online Counter */
+  .online-counter {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; color: var(--accent-2);
+    background: rgba(0, 212, 170, 0.1); border: 1px solid rgba(0, 212, 170, 0.2);
+    padding: 4px 10px; border-radius: 999px;
+    margin-right: 6px;
+  }
+  .online-counter .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-2); box-shadow: 0 0 6px var(--accent-2);
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
   /* Landing */
   .landing { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; overflow-y: auto; }
   .landing.hidden { display: none; }
@@ -70,6 +86,7 @@
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
   .landing p { text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 26px; line-height: 1.6; }
+  
   .name-field { position: relative; margin-bottom: 20px; }
   .name-field label {
     display: block; font-size: 11px; text-transform: uppercase;
@@ -117,7 +134,6 @@
   }
   .tile-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
   .tile-badge.live .dot { background: var(--accent-2); box-shadow: 0 0 8px var(--accent-2); animation: pulse 1.6s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
   
   .video-tile.remote .placeholder {
     position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
@@ -274,6 +290,7 @@
     .btn .label { display: none; }
     .btn.icon svg { width: 18px; height: 18px; }
     .header-links a span { display: none; }
+    .online-counter span { display: none; }
   }
 </style>
 </head>
@@ -285,6 +302,11 @@
       <span>Stranger Cam</span>
     </div>
     <div class="header-links">
+      <!-- Added Online Counter Here -->
+      <div class="online-counter">
+        <span class="dot"></span>
+        <span id="liveOnlineCount">0</span> online
+      </div>
       <a href="/" class="active">🎥 <span>Video</span></a>
       <a href="/messaging.html">💬 <span>Text</span></a>
     </div>
@@ -453,8 +475,7 @@
       { urls: 'stun:global.stun.twilio.com:3478' }
     ],
     iceCandidatePoolSize: 4,
-    // Force low bitrate to prevent massive lag on mobile
-    bitrate: 500000 // 500 kbps
+    bitrate: 500000
   };
 
   const $ = (id) => document.getElementById(id);
@@ -477,6 +498,7 @@
   const statusText = $('statusText');
   const toastEl = $('toast');
   const btnFlipCamera = $('btnFlipCamera');
+  const liveOnlineCount = $('liveOnlineCount'); // New
 
   const btnNext = $('btnNext');
   const btnStop = $('btnStop');
@@ -568,7 +590,6 @@
     showSearchingUI();
   });
 
-  // Force cleanup when navigating away to stop double starts
   window.addEventListener('beforeunload', () => {
     try { socket.emit('leave_chat'); } catch(_) {}
     cleanupPeer();
@@ -585,6 +606,11 @@
     if (state.inChat || state.inQueue) {
       resetToLanding('Connection lost. Click Start to reconnect.');
     }
+  });
+
+  // Listen for live online count
+  socket.on('online_count', (count) => {
+    liveOnlineCount.textContent = count;
   });
 
   socket.on('queue_joined', () => {
@@ -821,12 +847,11 @@
       }
     };
 
-    // Apply bitrate limit to outgoing video to stop lag
     const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
     if (sender) {
       const params = sender.getParameters();
       if (!params.encodings) params.encodings = [{}];
-      params.encodings[0].maxBitrate = 500000; // 500 kbps max (prevents lag)
+      params.encodings[0].maxBitrate = 500000;
       sender.setParameters(params).catch(e => console.warn('Bitrate limit failed:', e));
     }
 
